@@ -1,3 +1,4 @@
+from crypt import methods
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -30,6 +31,9 @@ db = client.whatsapp_crm
 # WhatsApp webhook verify token
 VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'your_verify_token')
 
+@app.route('/api/health', methods=['GET'])
+def health():
+    jsonify({'success': True, 'error': 'healthy endpoint'}), 400
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
