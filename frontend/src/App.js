@@ -3,7 +3,10 @@ import { io } from 'socket.io-client';
 import ChatList from './components/ChatList';
 import ChatWindow from './components/ChatWindow';
 import Dashboard from './components/Dashboard';
+import NotificationSettings from './components/NotificationSettings';
+import { IoNotifications } from 'react-icons/io5';
 import config from './config';
+import notificationManager from './utils/notification';
 import './App.css';
 
 const socket = io(config.SOCKET_URL);
@@ -13,6 +16,7 @@ function App() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const selectedChatRef = useRef(selectedChat);
 
   // Update ref when selectedChat changes
@@ -29,7 +33,7 @@ function App() {
       console.log('Connected to server:', data);
     });
 
-    socket.on('new_message', (messageData) => {
+    socket.on('new_message', async (messageData) => {
       // Update chats list
       fetchChats();
       
@@ -37,6 +41,18 @@ function App() {
       const currentChat = selectedChatRef.current;
       if (currentChat && messageData.phone === currentChat.phone) {
         fetchMessages(currentChat.phone);
+      }
+      
+      // Play notification sound for incoming messages
+      if (messageData.direction === 'inbound') {
+        // Find the sender's name from chats
+        const senderChat = chats.find(chat => chat.phone === messageData.phone);
+        const senderName = senderChat?.name || messageData.phone;
+        
+        // Show notification if the app is not focused or it's a different chat
+        if (!document.hasFocus() || !currentChat || currentChat.phone !== messageData.phone) {
+          await notificationManager.notifyNewMessage(messageData.message, senderName);
+        }
       }
     });
 
@@ -209,6 +225,13 @@ function App() {
       <div className="app-sidebar">
         <div className="app-header">
           <h1>WhatsApp CRM</h1>
+          <button 
+            className="notification-btn"
+            onClick={() => setShowNotificationSettings(true)}
+            title="Notification Settings"
+          >
+            <IoNotifications />
+          </button>
         </div>
         <Dashboard chats={chats} />
         <ChatList 
@@ -234,6 +257,10 @@ function App() {
           </div>
         )}
       </div>
+      <NotificationSettings 
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
+      />
     </div>
   );
 }
