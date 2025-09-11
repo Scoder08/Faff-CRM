@@ -42,7 +42,7 @@ def get_auto_reply(message_text, is_new_user=True):
     """Generate auto-reply based on message content"""
     message_lower = message_text.lower()
     
-    if ("hi" in message_lower and "faff" in message_lower): #is_new_user and 
+    if is_new_user and ("hi" in message_lower and "faff" in message_lower): 
         # Check for referral
         referred_by = None
         if "referred by" in message_lower:

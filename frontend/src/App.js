@@ -86,14 +86,27 @@ function App() {
 
   const updateStatus = async (phone, status) => {
     try {
-      await fetch('http://localhost:5000/api/update-status', {
+      const response = await fetch('http://localhost:5000/api/update-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ phone, status }),
       });
-      fetchChats();
+      
+      if (response.ok) {
+        // Update the local state immediately for better UX
+        setChats(prevChats => 
+          prevChats.map(chat => 
+            chat.phone === phone ? { ...chat, status } : chat
+          )
+        );
+        
+        // Update selected chat if it's the one being modified
+        if (selectedChat && selectedChat.phone === phone) {
+          setSelectedChat(prevChat => ({ ...prevChat, status }));
+        }
+      }
     } catch (error) {
       console.error('Error updating status:', error);
     }
