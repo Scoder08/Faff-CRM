@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ScheduleCallModal from './ScheduleCallModal';
 
-const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate }) => {
+const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleCall }) => {
   const [newMessage, setNewMessage] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const messagesEndRef = useRef(null);
   const prevMessagesLength = useRef(0);
   const isInitialLoad = useRef(true);
@@ -117,7 +119,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate }) => {
               </div>
             )}
           </div>
-          <button className="schedule-btn">
+          <button className="schedule-btn" onClick={() => setShowScheduleModal(true)}>
             📅 Schedule Call
           </button>
           <button className="more-btn">⋮</button>
@@ -164,6 +166,13 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate }) => {
           </button>
         </div>
       </form>
+      
+      <ScheduleCallModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        chat={chat}
+        onSchedule={onScheduleCall}
+      />
     </div>
   );
 };

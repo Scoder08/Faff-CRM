@@ -115,6 +115,57 @@ function App() {
     }
   };
 
+  const scheduleCall = async (callData) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/schedule-call', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(callData),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Update user status locally
+        setChats(prevChats => 
+          prevChats.map(chat => 
+            chat.phone === callData.phone ? { ...chat, status: 'call_scheduled' } : chat
+          )
+        );
+        
+        // Update selected chat if it's the one being modified
+        if (selectedChat && selectedChat.phone === callData.phone) {
+          setSelectedChat(prevChat => ({ ...prevChat, status: 'call_scheduled' }));
+        }
+        
+        // Refresh chats to get latest data
+        fetchChats();
+        
+        // Show detailed feedback
+        let message = `✅ Call scheduled for ${data.scheduledDate}\n`;
+        if (data.whatsappSent) {
+          message += '✅ WhatsApp confirmation sent\n';
+        } else {
+          message += '⚠️ WhatsApp message failed (check your WhatsApp API config)\n';
+        }
+        if (data.emailSent) {
+          message += '✅ Calendar invite sent to email\n';
+        } else if (data.emailError) {
+          message += `⚠️ Email not sent: ${data.emailError}\n`;
+        }
+        
+        alert(message);
+      } else {
+        alert(`Failed to schedule call: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error scheduling call:', error);
+      alert('Failed to schedule call. Please try again.');
+    }
+  };
+
   const updateStatus = async (phone, status) => {
     try {
       const response = await fetch('http://localhost:5000/api/update-status', {
@@ -176,6 +227,7 @@ function App() {
             messages={messages}
             onSendMessage={sendMessage}
             onStatusUpdate={updateStatus}
+            onScheduleCall={scheduleCall}
           />
         ) : (
           <div className="no-chat-selected">
