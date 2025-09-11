@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ScheduleCallModal from './ScheduleCallModal';
+import UserNotesModal from './UserNotesModal';
 
 const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleCall }) => {
   const [newMessage, setNewMessage] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const messagesEndRef = useRef(null);
   const prevMessagesLength = useRef(0);
   const isInitialLoad = useRef(true);
@@ -88,7 +91,11 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
     <div className="chat-window">
       <div className="chat-header">
         <div className="chat-info">
-          <div className="chat-avatar-large">
+          <div 
+            className="chat-avatar-large clickable"
+            onClick={() => setShowNotesModal(true)}
+            title="View user notes"
+          >
             {chat.name.substring(0, 2).toUpperCase()}
           </div>
           <div className="chat-details">
@@ -122,7 +129,27 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
           <button className="schedule-btn" onClick={() => setShowScheduleModal(true)}>
             📅 Schedule Call
           </button>
-          <button className="more-btn">⋮</button>
+          <div className="more-menu-container">
+            <button className="more-btn" onClick={() => setShowMoreMenu(!showMoreMenu)}>
+              ⋮
+            </button>
+            {showMoreMenu && (
+              <div className="more-menu">
+                <button onClick={() => {
+                  setShowNotesModal(true);
+                  setShowMoreMenu(false);
+                }}>
+                  📝 User Notes
+                </button>
+                <button onClick={() => {
+                  // Add more options here
+                  setShowMoreMenu(false);
+                }}>
+                  ℹ️ User Info
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -172,6 +199,12 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
         onClose={() => setShowScheduleModal(false)}
         chat={chat}
         onSchedule={onScheduleCall}
+      />
+      
+      <UserNotesModal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+        user={chat}
       />
     </div>
   );

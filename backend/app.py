@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 from pymongo import MongoClient
+from bson import ObjectId
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -368,6 +369,79 @@ def download_ics(phone):
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/user-notes/<phone>', methods=['GET', 'POST'])
+def user_notes(phone):
+    """Get or add notes for a user"""
+    if request.method == 'GET':
+        try:
+            # Get user with notes
+            user = db.users.find_one({'phone': phone})
+            if user:
+                notes = user.get('notes', [])
+                # Sort notes by date, most recent first
+                notes.sort(key=lambda x: x.get('createdAt', datetime.min), reverse=True)
+                
+                # Convert datetime objects to ISO format strings for JSON serialization
+                for note in notes:
+                    if isinstance(note.get('createdAt'), datetime):
+                        note['createdAt'] = note['createdAt'].isoformat()
+                
+                return jsonify({'success': True, 'notes': notes})
+            return jsonify({'success': True, 'notes': []})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+            
+    elif request.method == 'POST':
+        try:
+            data = request.json
+            note_text = data.get('note', '').strip()
+            
+            if not note_text:
+                return jsonify({'success': False, 'error': 'Note cannot be empty'}), 400
+            
+            # Create note object
+            new_note = {
+                '_id': str(ObjectId()),
+                'text': note_text,
+                'createdAt': datetime.now(),
+                'addedBy': data.get('addedBy', 'Admin')  # You can pass the actual user name from frontend
+            }
+            
+            # Add note to user's notes array
+            result = db.users.update_one(
+                {'phone': phone},
+                {
+                    '$push': {'notes': new_note},
+                    '$setOnInsert': {
+                        'phone': phone,
+                        'createdAt': datetime.now()
+                    }
+                },
+                upsert=True
+            )
+            
+            # Get updated notes
+            user = db.users.find_one({'phone': phone})
+            notes = user.get('notes', [])
+            notes.sort(key=lambda x: x.get('createdAt', datetime.min), reverse=True)
+            
+            # Convert datetime objects to ISO format strings for JSON serialization
+            for note in notes:
+                if isinstance(note.get('createdAt'), datetime):
+                    note['createdAt'] = note['createdAt'].isoformat()
+            
+            # Emit update to other connected clients
+            socketio.emit('notes_updated', {
+                'phone': phone,
+                'notes': notes
+            })
+            
+            return jsonify({'success': True, 'notes': notes})
+            
+        except Exception as e:
+            print(f"Error adding note: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/update-status', methods=['POST'])
 def update_status():

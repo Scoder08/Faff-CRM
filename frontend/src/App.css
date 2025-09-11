@@ -337,6 +337,16 @@ body {
   margin-right: 15px;
 }
 
+.chat-avatar-large.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.chat-avatar-large.clickable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+}
+
 .chat-details h3 {
   font-size: 18px;
   color: #1a1a1a;
@@ -568,4 +578,46 @@ body {
   .app.chat-open .app-main {
     display: flex;
   }
+}
+/* More Menu Styles */
+.more-menu-container {
+  position: relative;
+}
+
+.more-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 5px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border: 1px solid #e1e8ed;
+  min-width: 160px;
+  z-index: 100;
+}
+
+.more-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 15px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.more-menu button:hover {
+  background: #f8f9fa;
+}
+
+.more-menu button:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.more-menu button:last-child {
+  border-radius: 0 0 8px 8px;
 }
