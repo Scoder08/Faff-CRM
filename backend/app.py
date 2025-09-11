@@ -29,15 +29,34 @@ CORS(app, origins=[frontend_url, 'http://localhost:3000'])
 socketio = SocketIO(app, cors_allowed_origins=[frontend_url, 'http://localhost:3000'])
 
 # MongoDB connection
-client = MongoClient(os.getenv('MONGODB_URI', 'mongodb://localhost:27017/'))
-db = client.whatsapp_crm
+mongodb_uri = os.getenv('MONGODB_URI')
+if not mongodb_uri:
+    print("WARNING: MONGODB_URI not set. Using localhost for development.")
+    mongodb_uri = 'mongodb://localhost:27017/'
+
+try:
+    client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
+    # Test the connection
+    client.server_info()
+    db = client.whatsapp_crm
+    print(f"Successfully connected to MongoDB")
+except Exception as e:
+    print(f"ERROR: Failed to connect to MongoDB: {e}")
+    print("Please set MONGODB_URI environment variable with a valid MongoDB connection string.")
+    # Create a dummy db object to prevent import errors
+    db = None
 
 # WhatsApp webhook verify token
 VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'your_verify_token')
 
 @app.route('/api/health', methods=['GET'])
 def health():
-    return jsonify({'success': True, 'message': 'API is healthy'}), 200
+    db_status = 'connected' if db is not None else 'disconnected'
+    return jsonify({
+        'success': True, 
+        'message': 'API is healthy',
+        'database': db_status
+    }), 200
 
 @app.route('/api/webhook', methods=['GET', 'POST'])
 def webhook():
@@ -65,6 +84,9 @@ def webhook():
 @app.route('/api/chats', methods=['GET'])
 def get_chats():
     """Get all chat conversations"""
+    if db is None:
+        return jsonify({'error': 'Database not connected. Please configure MONGODB_URI.'}), 503
+    
     users = list(db.users.find().sort('lastMessageAt', -1))
     
     chats = []
