@@ -4,14 +4,35 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate }) => {
   const [newMessage, setNewMessage] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const messagesEndRef = useRef(null);
+  const prevMessagesLength = useRef(0);
+  const isInitialLoad = useRef(true);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (instant = false) => {
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: instant ? "instant" : "smooth" 
+    });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Check if this is initial load or just new messages
+    if (messages.length > 0) {
+      if (isInitialLoad.current || prevMessagesLength.current === 0) {
+        // Initial load or switching chats - scroll instantly
+        scrollToBottom(true);
+        isInitialLoad.current = false;
+      } else if (messages.length > prevMessagesLength.current) {
+        // New message added - smooth scroll
+        scrollToBottom(false);
+      }
+      prevMessagesLength.current = messages.length;
+    }
   }, [messages]);
+
+  // Reset initial load flag when chat changes
+  useEffect(() => {
+    isInitialLoad.current = true;
+    prevMessagesLength.current = 0;
+  }, [chat?.phone]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
