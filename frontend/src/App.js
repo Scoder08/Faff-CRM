@@ -3,9 +3,10 @@ import { io } from 'socket.io-client';
 import ChatList from './components/ChatList';
 import ChatWindow from './components/ChatWindow';
 import Dashboard from './components/Dashboard';
+import config from './config';
 import './App.css';
 
-const socket = io('http://localhost:5000');
+const socket = io(config.SOCKET_URL);
 
 function App() {
   const [chats, setChats] = useState([]);
@@ -71,7 +72,7 @@ function App() {
 
   const fetchChats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/chats');
+      const response = await fetch(`${config.API_URL}/api/chats`);
       const data = await response.json();
       setChats(data);
       setLoading(false);
@@ -83,7 +84,7 @@ function App() {
 
   const fetchMessages = async (phone) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/messages/${phone}`);
+      const response = await fetch(`${config.API_URL}/api/messages/${phone}`);
       const data = await response.json();
       setMessages(data);
     } catch (error) {
@@ -98,7 +99,7 @@ function App() {
 
   const sendMessage = async (phone, message) => {
     try {
-      const response = await fetch('http://localhost:5000/api/send-message', {
+      const response = await fetch(`${config.API_URL}/api/send-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +118,7 @@ function App() {
 
   const scheduleCall = async (callData) => {
     try {
-      const response = await fetch('http://localhost:5000/api/schedule-call', {
+      const response = await fetch(`${config.API_URL}/api/schedule-call`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +169,7 @@ function App() {
 
   const updateStatus = async (phone, status) => {
     try {
-      const response = await fetch('http://localhost:5000/api/update-status', {
+      const response = await fetch(`${config.API_URL}/api/update-status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

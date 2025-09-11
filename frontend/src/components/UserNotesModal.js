@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import config from '../config';
 import './UserNotesModal.css';
 
 const UserNotesModal = ({ isOpen, onClose, user }) => {
@@ -16,7 +17,7 @@ const UserNotesModal = ({ isOpen, onClose, user }) => {
   const fetchNotes = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/user-notes/${user.phone}`);
+      const response = await fetch(`${config.API_URL}/api/user-notes/${user.phone}`);
       const data = await response.json();
       if (response.ok) {
         setNotes(data.notes || []);
@@ -33,7 +34,7 @@ const UserNotesModal = ({ isOpen, onClose, user }) => {
 
     setSaving(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/user-notes/${user.phone}`, {
+      const response = await fetch(`${config.API_URL}/api/user-notes/${user.phone}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

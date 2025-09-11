@@ -16,9 +16,12 @@ from whatsapp_handler import (
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'
-CORS(app, origins="*")
-socketio = SocketIO(app, cors_allowed_origins="*")
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
+
+# Configure CORS
+frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+CORS(app, origins=[frontend_url, 'http://localhost:3000'])
+socketio = SocketIO(app, cors_allowed_origins=[frontend_url, 'http://localhost:3000'])
 
 # MongoDB connection
 client = MongoClient(os.getenv('MONGODB_URI', 'mongodb://localhost:27017/'))
@@ -467,4 +470,6 @@ def handle_disconnect():
     print('Client disconnected')
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    port = int(os.getenv('PORT', 5000))
+    debug_mode = os.getenv('DEBUG', 'False').lower() == 'true'
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug_mode)
