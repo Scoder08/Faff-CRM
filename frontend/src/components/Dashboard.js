@@ -1,4 +1,5 @@
 import React from 'react';
+import { AiOutlineStar, AiOutlineTeam } from 'react-icons/ai';
 
 const Dashboard = ({ chats }) => {
   const priorityCount = chats.filter(chat => chat.status === 'priority').length;
@@ -10,12 +11,18 @@ const Dashboard = ({ chats }) => {
       <h2>Dashboard Overview</h2>
       <div className="dashboard-stats">
         <div className="stat-card priority">
-          <div className="stat-number">{priorityCount}</div>
-          <div className="stat-label">⭐ Priority Waitlist</div>
+          <div className="stat-icon"><AiOutlineStar /></div>
+          <div className="stat-content">
+            <div className="stat-number">{priorityCount}</div>
+            <div className="stat-label">Priority Waitlist</div>
+          </div>
         </div>
         <div className="stat-card regular">
-          <div className="stat-number">{regularCount}</div>
-          <div className="stat-label">🔒 Regular Waitlist</div>
+          <div className="stat-icon"><AiOutlineTeam /></div>
+          <div className="stat-content">
+            <div className="stat-number">{regularCount + waitlistedCount}</div>
+            <div className="stat-label">Regular Waitlist</div>
+          </div>
         </div>
       </div>
     </div>

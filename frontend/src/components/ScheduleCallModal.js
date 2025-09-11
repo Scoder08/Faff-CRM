@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import './ScheduleCallModal.css';
+import { IoCalendarOutline, IoTimeOutline, IoMailOutline, IoClose } from 'react-icons/io5';
+import { BiNote, BiCheck } from 'react-icons/bi';
+import { MdInfo } from 'react-icons/md';
 
 const ScheduleCallModal = ({ isOpen, onClose, chat, onSchedule }) => {
   const [date, setDate] = useState('');
@@ -77,7 +80,7 @@ const ScheduleCallModal = ({ isOpen, onClose, chat, onSchedule }) => {
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Schedule Onboarding Call</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button className="close-btn" onClick={onClose}><IoClose /></button>
         </div>
         
         <div className="modal-body">
@@ -94,7 +97,7 @@ const ScheduleCallModal = ({ isOpen, onClose, chat, onSchedule }) => {
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>
-                📅 Select Date
+                <IoCalendarOutline className="form-icon" /> Select Date
                 <input 
                   type="date"
                   value={date}
@@ -107,7 +110,7 @@ const ScheduleCallModal = ({ isOpen, onClose, chat, onSchedule }) => {
             
             <div className="form-group">
               <label>
-                ⏰ Select Time
+                <IoTimeOutline className="form-icon" /> Select Time
                 <select 
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
@@ -123,7 +126,7 @@ const ScheduleCallModal = ({ isOpen, onClose, chat, onSchedule }) => {
             
             <div className="form-group">
               <label>
-                ✉️ Your Email (for calendar invite)
+                <IoMailOutline className="form-icon" /> Your Email (for calendar invite)
                 <input 
                   type="email"
                   value={email}
@@ -136,7 +139,7 @@ const ScheduleCallModal = ({ isOpen, onClose, chat, onSchedule }) => {
             
             <div className="form-group">
               <label>
-                Meeting Notes (Optional)
+                <BiNote className="form-icon" /> Meeting Notes (Optional)
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -147,9 +150,9 @@ const ScheduleCallModal = ({ isOpen, onClose, chat, onSchedule }) => {
             </div>
             
             <div className="info-text">
-              <p>📅 A calendar invite will be sent to your email with the user's details</p>
-              <p>✓ The user's status will be updated to "Call Scheduled"</p>
-              <p>💬 A WhatsApp confirmation will be sent to the user</p>
+              <p><MdInfo className="info-icon" /> A calendar invite will be sent to your email with the user's details</p>
+              <p><BiCheck className="info-icon" /> The user's status will be updated to "Call Scheduled"</p>
+              <p><BiCheck className="info-icon" /> A WhatsApp confirmation will be sent to the user</p>
             </div>
             
             <div className="modal-actions">

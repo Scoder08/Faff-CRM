@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BiSearch, BiFilterAlt } from 'react-icons/bi';
 
 const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,16 +51,22 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate }) => {
   return (
     <div className="chat-list">
       <div className="search-bar">
-        <input
-          type="text"
-          placeholder="Search chats..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="search-input-wrapper">
+          <BiSearch className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search chats..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
       
       <div className="filter-tabs">
-        <button className="filter-tab active">📋 All Chats</button>
+        <button className="filter-tab active">
+          <BiFilterAlt className="filter-icon" />
+          All Chats
+        </button>
       </div>
 
       <div className="chats">
@@ -74,7 +81,12 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate }) => {
             </div>
             <div className="chat-content">
               <div className="chat-header">
-                <div className="chat-name">{chat.name}</div>
+                <div className="chat-name">
+                  {chat.name}
+                  {chat.unreadCount > 0 && (
+                    <span className="unread-badge">{chat.unreadCount}</span>
+                  )}
+                </div>
                 <div className="chat-time">{formatTime(chat.lastMessageTime)}</div>
               </div>
               <div className="chat-preview">
@@ -91,9 +103,6 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate }) => {
                   <span className="referral-badge">
                     Ref: {chat.referredBy}
                   </span>
-                )}
-                {chat.unreadCount > 0 && (
-                  <span className="unread-badge">{chat.unreadCount}</span>
                 )}
               </div>
             </div>

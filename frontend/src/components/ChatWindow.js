@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ScheduleCallModal from './ScheduleCallModal';
 import UserNotesModal from './UserNotesModal';
+import { IoSend, IoAttach, IoEllipsisHorizontal, IoLinkOutline, IoCalendarOutline } from 'react-icons/io5';
+import { BiNote, BiUser, BiBlock } from 'react-icons/bi';
+import { BsCheck, BsCheckAll } from 'react-icons/bs';
+import { MdError } from 'react-icons/md';
+import { AiOutlineClockCircle } from 'react-icons/ai';
 
 const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleCall }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -75,15 +80,15 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
   const getMessageStatusIcon = (status) => {
     switch (status) {
       case 'sent':
-        return '✓'; // Single checkmark
+        return <BsCheck className="status-icon" />;
       case 'delivered':
-        return '✓✓'; // Double checkmark
+        return <BsCheckAll className="status-icon" />;
       case 'read':
-        return <span style={{ color: '#0084ff' }}>✓✓</span>; // Blue double checkmark
+        return <BsCheckAll className="status-icon read" style={{ color: '#0084ff' }} />;
       case 'failed':
-        return <span style={{ color: '#ff0000' }}>✗</span>; // Red X
+        return <MdError className="status-icon error" style={{ color: '#ff0000' }} />;
       default:
-        return '⏱'; // Clock for pending
+        return <AiOutlineClockCircle className="status-icon pending" />;
     }
   };
 
@@ -126,12 +131,15 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
               </div>
             )}
           </div>
+          <button className="invite-btn" title="Send invite link">
+            <IoLinkOutline />
+          </button>
           <button className="schedule-btn" onClick={() => setShowScheduleModal(true)}>
-            📅 Schedule Call
+            <IoCalendarOutline />
           </button>
           <div className="more-menu-container">
             <button className="more-btn" onClick={() => setShowMoreMenu(!showMoreMenu)}>
-              ⋮
+              <IoEllipsisHorizontal />
             </button>
             {showMoreMenu && (
               <div className="more-menu">
@@ -139,13 +147,19 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
                   setShowNotesModal(true);
                   setShowMoreMenu(false);
                 }}>
-                  📝 User Notes
+                  <BiNote className="menu-icon" /> Notes
                 </button>
                 <button onClick={() => {
                   // Add more options here
                   setShowMoreMenu(false);
                 }}>
-                  ℹ️ User Info
+                  <BiUser className="menu-icon" /> Profile
+                </button>
+                <button onClick={() => {
+                  // Add block option
+                  setShowMoreMenu(false);
+                }}>
+                  <BiBlock className="menu-icon" /> Block
                 </button>
               </div>
             )}
@@ -181,15 +195,17 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
 
       <form className="message-input" onSubmit={handleSendMessage}>
         <div className="input-container">
-          <button type="button" className="attach-btn">📎</button>
+          <button type="button" className="attach-btn">
+            <IoAttach />
+          </button>
           <input
             type="text"
-            placeholder="Type your message or use /command for quick replies..."
+            placeholder="Type your message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
           />
           <button type="submit" className="send-btn">
-            ➤
+            <IoSend />
           </button>
         </div>
       </form>

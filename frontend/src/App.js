@@ -208,9 +208,6 @@ function App() {
       <div className="app-sidebar">
         <div className="app-header">
           <h1>WhatsApp CRM</h1>
-          <button className="invite-btn">
-            🔗 Send Invite Link
-          </button>
         </div>
         <Dashboard chats={chats} />
         <ChatList 
