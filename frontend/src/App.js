@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import ChatList from './components/ChatList';
 import ChatWindow from './components/ChatWindow';
@@ -12,6 +12,12 @@ function App() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const selectedChatRef = useRef(selectedChat);
+
+  // Update ref when selectedChat changes
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
 
   useEffect(() => {
     // Load initial chats
@@ -26,17 +32,42 @@ function App() {
       // Update chats list
       fetchChats();
       
-      // Update messages if it's for current chat
-      if (selectedChat && messageData.phone === selectedChat.phone) {
-        fetchMessages(selectedChat.phone);
+      // Update messages if it's for current chat using ref
+      const currentChat = selectedChatRef.current;
+      if (currentChat && messageData.phone === currentChat.phone) {
+        fetchMessages(currentChat.phone);
       }
+    });
+
+    // Listen for message status updates
+    socket.on('message_status_update', (statusData) => {
+      console.log('Message status update:', statusData);
+      
+      // Force update the message status in the local state
+      setMessages(prevMessages => {
+        if (!prevMessages || prevMessages.length === 0) return prevMessages;
+        
+        const updated = prevMessages.map(msg => {
+          // Match by MongoDB ID or WhatsApp message ID
+          if (msg.id === statusData.messageId || 
+              msg.whatsappMessageId === statusData.whatsappMessageId) {
+            console.log(`Updating message ${msg.id} status from ${msg.status} to ${statusData.status}`);
+            return { ...msg, status: statusData.status };
+          }
+          return msg;
+        });
+        
+        // Create new array to force re-render
+        return [...updated];
+      });
     });
 
     return () => {
       socket.off('connected');
       socket.off('new_message');
+      socket.off('message_status_update');
     };
-  }, [selectedChat]);
+  }, []); // Empty dependency - set up once
 
   const fetchChats = async () => {
     try {

@@ -97,6 +97,8 @@ def parse_message_data(data):
             return None
             
         value = changes[0].get('value', {})
+        
+        # Check if this is a message (not just a status update)
         if 'messages' not in value:
             return None
             
@@ -163,7 +165,8 @@ def process_incoming_message(db, socketio, parsed_data):
         'direction': 'inbound',
         'timestamp': timestamp,
         'messageType': message_type,
-        'isRead': False
+        'isRead': False,
+        'status': 'received'  # For incoming messages
     }
     db.messages.insert_one(message_doc)
     
@@ -208,6 +211,13 @@ def process_incoming_message(db, socketio, parsed_data):
         api_response = send_whatsapp_message(phone, reply_text, buttons)
         print(f"WhatsApp API response: {api_response}")
         
+        # Determine message status based on API response
+        message_status = 'failed'
+        whatsapp_message_id = None
+        if 'messages' in api_response and len(api_response['messages']) > 0:
+            message_status = 'sent'
+            whatsapp_message_id = api_response['messages'][0].get('id')
+        
         # Save outbound message
         reply_doc = {
             'phone': phone,
@@ -215,7 +225,9 @@ def process_incoming_message(db, socketio, parsed_data):
             'direction': 'outbound',
             'timestamp': datetime.now(),
             'messageType': 'interactive' if buttons else 'text',
-            'isRead': True
+            'isRead': True,
+            'status': message_status,
+            'whatsappMessageId': whatsapp_message_id
         }
         db.messages.insert_one(reply_doc)
         
@@ -238,3 +250,66 @@ def process_incoming_message(db, socketio, parsed_data):
         })
     
     return True
+
+def process_status_update(db, socketio, data):
+    """Process WhatsApp message status updates (delivered, read, etc.)"""
+    try:
+        # Check if this webhook contains status updates
+        if 'entry' not in data or not data['entry']:
+            return False
+            
+        for entry in data['entry']:
+            changes = entry.get('changes', [])
+            for change in changes:
+                value = change.get('value', {})
+                
+                # Check if this change contains statuses
+                if 'statuses' in value:
+                    statuses = value['statuses']
+                    print(f"Processing {len(statuses)} status updates")
+                    
+                    for status in statuses:
+                        message_id = status.get('id')
+                        status_type = status.get('status')  # sent, delivered, read, failed
+                        recipient = status.get('recipient_id')
+                        timestamp = datetime.fromtimestamp(int(status.get('timestamp', 0)))
+                        
+                        print(f"Status update: Message {message_id} to {recipient} is {status_type}")
+                        
+                        # Update message status in database by WhatsApp message ID
+                        result = db.messages.update_one(
+                            {'whatsappMessageId': message_id},
+                            {
+                                '$set': {
+                                    'status': status_type,
+                                    'statusTimestamp': timestamp
+                                }
+                            }
+                        )
+                        
+                        if result.modified_count > 0:
+                            print(f"Updated message {message_id} status to {status_type}")
+                            
+                            # Get the message to have full context for frontend
+                            message = db.messages.find_one({'whatsappMessageId': message_id})
+                            
+                            if message and socketio:
+                                # Emit status update to frontend with message details
+                                socketio.emit('message_status_update', {
+                                    'messageId': str(message.get('_id')),
+                                    'whatsappMessageId': message_id,
+                                    'phone': recipient,
+                                    'status': status_type,
+                                    'timestamp': timestamp.isoformat()
+                                })
+                        else:
+                            print(f"No message found with WhatsApp ID: {message_id}")
+                    
+                    return True  # We processed status updates
+                    
+        return False  # No status updates in this webhook
+    except Exception as e:
+        print(f"Error processing status update: {e}")
+        import traceback
+        traceback.print_exc()
+        return False

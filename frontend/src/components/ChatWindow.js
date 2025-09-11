@@ -46,6 +46,21 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate }) => {
     }
   };
 
+  const getMessageStatusIcon = (status) => {
+    switch (status) {
+      case 'sent':
+        return '✓'; // Single checkmark
+      case 'delivered':
+        return '✓✓'; // Double checkmark
+      case 'read':
+        return <span style={{ color: '#0084ff' }}>✓✓</span>; // Blue double checkmark
+      case 'failed':
+        return <span style={{ color: '#ff0000' }}>✗</span>; // Red X
+      default:
+        return '⏱'; // Clock for pending
+    }
+  };
+
   return (
     <div className="chat-window">
       <div className="chat-header">
@@ -98,8 +113,15 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate }) => {
               <div className="message-content">
                 {message.message}
               </div>
-              <div className="message-time">
-                {formatTime(message.timestamp)}
+              <div className="message-meta">
+                <span className="message-time">
+                  {formatTime(message.timestamp)}
+                </span>
+                {message.direction === 'outbound' && (
+                  <span className="message-status">
+                    {getMessageStatusIcon(message.status)}
+                  </span>
+                )}
               </div>
             </div>
           ))}

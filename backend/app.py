@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 from whatsapp_handler import (
     send_whatsapp_message,
     parse_message_data,
-    process_incoming_message
+    process_incoming_message,
+    process_status_update
 )
 
 load_dotenv()
@@ -36,14 +37,16 @@ def webhook():
         return 'Invalid verification token', 403
     
     elif request.method == 'POST':
-        # Handle incoming messages
+        # Handle incoming messages and status updates
         data = request.json
         print(f"Webhook data received: {data}")
         
-        # Parse and process the message
-        parsed_data = parse_message_data(data)
-        if parsed_data:
-            process_incoming_message(db, socketio, parsed_data)
+        # First check if it's a status update
+        if not process_status_update(db, socketio, data):
+            # If not a status update, try to process as a message
+            parsed_data = parse_message_data(data)
+            if parsed_data:
+                process_incoming_message(db, socketio, parsed_data)
         
         return 'Success', 200
 
@@ -98,7 +101,9 @@ def get_messages(phone):
             'message': msg['message'],
             'direction': msg['direction'],
             'timestamp': msg['timestamp'].isoformat(),
-            'messageType': msg.get('messageType', 'text')
+            'messageType': msg.get('messageType', 'text'),
+            'status': msg.get('status', 'sent'),  # Include message status
+            'whatsappMessageId': msg.get('whatsappMessageId')  # Include WhatsApp message ID for status tracking
         })
     
     return jsonify(result)
@@ -114,14 +119,19 @@ def send_message():
     response = send_whatsapp_message(phone, message)
     
     if 'messages' in response:
-        # Save to database
+        # Get WhatsApp message ID for tracking status
+        whatsapp_message_id = response['messages'][0].get('id')
+        
+        # Save to database with status
         message_doc = {
             'phone': phone,
             'message': message,
             'direction': 'outbound',
             'timestamp': datetime.now(),
             'messageType': 'text',
-            'isRead': True
+            'isRead': True,
+            'status': 'sent',
+            'whatsappMessageId': whatsapp_message_id
         }
         db.messages.insert_one(message_doc)
         

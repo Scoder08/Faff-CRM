@@ -468,11 +468,24 @@ body {
   border-bottom-left-radius: 4px;
 }
 
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 0 8px;
+}
+
 .message-time {
   font-size: 11px;
   color: #666;
-  margin-top: 4px;
-  padding: 0 8px;
+}
+
+.message-status {
+  font-size: 14px;
+  color: #888;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Message Input */
