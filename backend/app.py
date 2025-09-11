@@ -1,4 +1,3 @@
-from crypt import methods
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -6,7 +5,12 @@ from pymongo import MongoClient
 from bson import ObjectId
 from datetime import datetime
 import os
+import sys
 from dotenv import load_dotenv
+
+# Add current directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from whatsapp_handler import (
     send_whatsapp_message,
     parse_message_data,
@@ -33,9 +37,9 @@ VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'your_verify_token')
 
 @app.route('/api/health', methods=['GET'])
 def health():
-    jsonify({'success': True, 'error': 'healthy endpoint'}), 400
+    return jsonify({'success': True, 'message': 'API is healthy'}), 200
 
-@app.route('/webhook', methods=['GET', 'POST'])
+@app.route('/api/webhook', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'GET':
         # Webhook verification
