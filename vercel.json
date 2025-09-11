@@ -1,0 +1,22 @@
+{
+    "version": 2,
+    "builds": [
+      { "src": "backend/app.py", "use": "@vercel/python" },
+      {
+        "src": "frontend/package.json",
+        "use": "@vercel/static-build",
+        "config": { 
+          "distDir": "build",
+          "buildCommand": "npm run build"
+        }
+      }
+    ],
+    "routes": [
+      { "src": "^/api/?(.*)$", "dest": "backend/app.py" },
+      { "handle": "filesystem" },
+      { "src": "^/static/(.*)", "dest": "frontend/static/$1" },
+      { "src": "^/(.*\\.(js|css|ico|png|jpg|jpeg|svg))", "dest": "frontend/$1" },
+      { "src": "/(.*)", "dest": "frontend/index.html" }
+    ]
+  }
+  
