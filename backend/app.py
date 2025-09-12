@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch() 
+
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -33,7 +36,8 @@ is_railway = os.getenv('RAILWAY_ENVIRONMENT') is not None
 # if is_railway:
 # print("Running on Railway - enabling permissive CORS")
 CORS(app, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*", ping_interval=10,     # keep-alives
+    ping_timeout=30)
 # else:
 #     CORS(app, origins=[frontend_url, 'http://localhost:3000'])
 #     socketio = SocketIO(app, cors_allowed_origins=[frontend_url, 'http://localhost:3000'])
