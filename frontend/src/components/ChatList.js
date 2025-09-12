@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BiSearch, BiFilterAlt } from 'react-icons/bi';
 
-const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate }) => {
+const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCounts = {}, newMessageIndicators = {} }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredChats = chats.filter(chat =>
@@ -83,11 +83,16 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate }) => {
               <div className="chat-header">
                 <div className="chat-name">
                   {chat.name}
-                  {chat.unreadCount > 0 && (
-                    <span className="unread-badge">{chat.unreadCount}</span>
+                  {newMessageIndicators[chat.phone] && (
+                    <span className="new-message-dot" title="New messages"></span>
                   )}
                 </div>
-                <div className="chat-time">{formatTime(chat.lastMessageTime)}</div>
+                <div className="chat-time-wrapper">
+                  <div className="chat-time">{formatTime(chat.lastMessageTime)}</div>
+                  {unreadCounts[chat.phone] > 0 && (
+                    <span className="unread-count-badge">{unreadCounts[chat.phone]}</span>
+                  )}
+                </div>
               </div>
               <div className="chat-preview">
                 {chat.lastMessage || 'No messages yet'}
