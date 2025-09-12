@@ -289,21 +289,25 @@ def process_incoming_message(db, socketio, parsed_data):
         
         # Emit outbound message to frontend
         if socketio:
+            print(f"Emitting outbound new_message event to frontend for {phone}")
             socketio.emit('new_message', {
                 'phone': phone,
                 'message': reply_text,
                 'direction': 'outbound',
                 'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
             })
+            print(f"Outbound new_message event emitted successfully")
     
     # Emit incoming message to frontend
     if socketio:
+        print(f"Emitting new_message event to frontend for {phone}")
         socketio.emit('new_message', {
             'phone': phone,
             'message': message_text,
             'direction': 'inbound',
             'timestamp': timestamp.isoformat()
         })
+        print(f"new_message event emitted successfully")
     
     return True
 

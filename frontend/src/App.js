@@ -228,13 +228,34 @@ function App() {
     });
     
     socket.on('new_message', async (messageData) => {
-      // Update chats list
-      fetchChats();
+      console.log('New message received:', messageData);
+      
+      // Update chats list to move this chat to top and update lastMessage
+      setChats(prevChats => {
+        const chatIndex = prevChats.findIndex(chat => chat.phone === messageData.phone);
+        if (chatIndex === -1) {
+          // Chat doesn't exist, fetch all chats
+          fetchChats();
+          return prevChats;
+        }
+        
+        // Update the chat with new message info
+        const updatedChat = {
+          ...prevChats[chatIndex],
+          lastMessage: messageData.message || messageData.text,
+          lastMessageTime: messageData.timestamp || new Date().toISOString()
+        };
+        
+        // Remove from current position and add to top
+        const newChats = [...prevChats];
+        newChats.splice(chatIndex, 1);
+        return [updatedChat, ...newChats];
+      });
       
       // Update messages if it's for current chat using ref
       const currentChat = selectedChatRef.current;
       
-      // Track new messages for other chats
+      // Track new messages for other chats (inbound only)
       if (messageData.direction === 'inbound' && (!currentChat || messageData.phone !== currentChat.phone)) {
         // Mark this chat as having new messages
         setNewMessageIndicators(prev => ({

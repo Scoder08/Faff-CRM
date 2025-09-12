@@ -138,7 +138,10 @@ def webhook():
     elif request.method == 'POST':
         # Handle incoming messages and status updates
         data = request.json
-        print(f"Webhook data received: {data}")
+        print(f"\n{'='*50}")
+        print(f"WEBHOOK DATA RECEIVED at {datetime.now(pytz.timezone('Asia/Kolkata'))}")
+        print(f"Data: {json.dumps(data, indent=2) if data else 'None'}")
+        print(f"{'='*50}\n")
         
         # First check if it's a status update
         if not process_status_update(db, socketio, data):
