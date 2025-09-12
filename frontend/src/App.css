@@ -357,8 +357,9 @@ body {
 .chat-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 5px;
+  gap: 10px;
 }
 
 .chat-name {
@@ -368,6 +369,11 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .new-message-dot {
@@ -394,6 +400,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .unread-count-badge {
@@ -409,8 +416,9 @@ body {
 }
 
 .chat-time {
-  font-size: 12px;
+  font-size: 10px;
   color: #999;
+  white-space: nowrap;
 }
 
 .chat-preview {
@@ -421,6 +429,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.4;
+  max-width: 100%;
 }
 
 .chat-meta {
@@ -549,7 +558,7 @@ body {
 }
 
 .chat-header {
-  padding: 20px;
+  padding: 5px;
   border-bottom: 1px solid #e1e8ed;
   display: flex;
   justify-content: space-between;

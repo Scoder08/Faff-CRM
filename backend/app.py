@@ -145,7 +145,17 @@ def webhook():
             # If not a status update, try to process as a message
             parsed_data = parse_message_data(data)
             if parsed_data:
+                # Check if this is a new user before processing
+                phone = parsed_data.get('phone')
+                is_new_user = db.users.find_one({'phone': phone}) is None
+                
+                # Process the message
                 process_incoming_message(db, socketio, parsed_data)
+                
+                # Invalidate cache if new user was created
+                if is_new_user:
+                    cache['chats'] = None
+                    cache['chats_timestamp'] = None
         
         return 'Success', 200
 
@@ -668,6 +678,122 @@ def update_status():
     })
     
     return jsonify({'success': True})
+
+@app.route('/api/send-invite', methods=['POST'])
+def send_invite():
+    """Send invite link to user via external WhatsApp API"""
+    import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    
+    data = request.json
+    phone = data.get('phone')
+    name = data.get('name')
+    referrer_name = data.get('referrerName', '')
+    
+    if not phone or not name:
+        return jsonify({'error': 'Phone and name are required'}), 400
+    
+    # Prepare the payload for external API
+    # Format: "OnboardingTest, {name}, {phone}, Ask"
+    # Include referrer name if available
+    if referrer_name:
+        message_body = f"OnboardingTest, {name}, {phone}, Ask, {referrer_name}"
+    else:
+        message_body = f"OnboardingTest, {name}, {phone}, Ask"
+    
+    # External API endpoint
+    external_api_url = 'https://faff-api-251644788910.asia-south1.run.app/api/whatsapp/message'
+    
+    # Prepare the request payload
+    payload = {
+        "to": "120363333602342373@g.us",  # Will be modified to correct format if needed
+        "body": message_body,
+        "task_number": "0"
+    }
+    
+    # Query parameters
+    params = {
+        'fallback': 'false',
+        'internal': 'false'
+    }
+    
+    try:
+        print(f"Sending invite request: {payload}")
+        print(f"URL: {external_api_url}")
+        
+        # Create a new session with retry strategy and connection pooling
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=20,
+            max_retries=retry_strategy
+        )
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        # Make the API call with the session
+        response = session.post(
+            external_api_url,
+            params=params,
+            json=payload,
+            headers={
+                'accept': 'application/json',
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (compatible; Python-Requests)'
+            },
+            timeout=30,  # Increased timeout
+            verify=True  # Ensure SSL verification
+        )
+        print(f"Response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            # Log the activity
+            db.activity_logs.insert_one({
+                'action': 'invite_sent',
+                'phone': phone,
+                'name': name,
+                'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')),
+                'response': response.json() if response.text else {}
+            })
+            
+            # Emit event to update UI
+            socketio.emit('invite_sent', {
+                'phone': phone,
+                'status': 'success'
+            })
+            
+            return jsonify({
+                'success': True,
+                'message': f'Invite sent to {name}',
+                'response': response.json() if response.text else {}
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to send invite: {response.status_code}',
+                'details': response.text
+            }), response.status_code
+            
+    except requests.exceptions.Timeout as e:
+        print(f"Timeout error: {e}")
+        return jsonify({'error': 'Request timeout - please try again'}), 504
+    except requests.exceptions.ConnectionError as e:
+        print(f"Connection error: {e}")
+        return jsonify({'error': 'Connection error - please check your network'}), 503
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return jsonify({'error': f'Request failed: {str(e)}'}), 500
+    except Exception as e:
+        print(f"Unexpected error sending invite: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Internal error: {str(e)}'}), 500
 
 @app.route('/api/update-payment-status', methods=['POST'])
 def update_payment_status():

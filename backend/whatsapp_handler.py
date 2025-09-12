@@ -73,7 +73,7 @@ def get_auto_reply(message_text, is_new_user=True):
     """Generate auto-reply based on message content"""
     message_lower = message_text.lower()
     
-    if is_new_user and ("hi" in message_lower and "faff" in message_lower): 
+    if is_new_user: 
         # Check for referral
         referred_by = None
         if "referred by" in message_lower:
@@ -235,6 +235,17 @@ def process_incoming_message(db, socketio, parsed_data):
         }
         print(f"Creating new user: {user_doc}")
         db.users.insert_one(user_doc)
+        
+        # Emit new user event to update frontend immediately
+        if socketio:
+            socketio.emit('new_user_created', {
+                'phone': phone,
+                'name': contact_name,
+                'status': 'priority',
+                'referredBy': referred_by,
+                'lastMessage': message_text,
+                'lastMessageTime': timestamp.isoformat()
+            })
     elif not is_new_user:
         # Update existing user
         print(f"Updating existing user {phone} with lastMessageAt: {timestamp}")

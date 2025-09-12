@@ -186,6 +186,47 @@ function App() {
       }
     });
 
+    // Listen for new user creation
+    socket.on('new_user_created', (userData) => {
+      console.log('New user created:', userData);
+      
+      // Add the new user to chats list immediately
+      setChats(prevChats => {
+        // Check if user already exists
+        const exists = prevChats.some(chat => chat.phone === userData.phone);
+        if (exists) {
+          return prevChats;
+        }
+        
+        // Add new user at the beginning (most recent)
+        const newChat = {
+          id: `new_${Date.now()}`, // Temporary ID
+          phone: userData.phone,
+          name: userData.name,
+          status: userData.status || 'priority',
+          referredBy: userData.referredBy,
+          isPaid: false,
+          lastMessage: userData.lastMessage || '',
+          lastMessageTime: userData.lastMessageTime || new Date().toISOString(),
+          unreadCount: 1
+        };
+        
+        return [newChat, ...prevChats];
+      });
+      
+      // Mark as having new messages
+      setNewMessageIndicators(prev => ({
+        ...prev,
+        [userData.phone]: true
+      }));
+      
+      // Set initial unread count
+      setUnreadCounts(prev => ({
+        ...prev,
+        [userData.phone]: 1
+      }));
+    });
+    
     socket.on('new_message', async (messageData) => {
       // Update chats list
       fetchChats();
@@ -374,14 +415,22 @@ function App() {
       });
     });
 
+    // Listen for invite sent events
+    socket.on('invite_sent', (data) => {
+      console.log('Invite sent:', data);
+      // You could show a toast notification here
+    });
+    
     return () => {
       socket.off('connected');
       socket.off('disconnect');
       socket.off('reconnect');
+      socket.off('new_user_created');
       socket.off('new_message');
       socket.off('status_updated');
       socket.off('payment_status_updated');
       socket.off('message_status_update');
+      socket.off('invite_sent');
     };
   }, [socket, isSignedIn]); // Re-setup when socket or auth changes
 

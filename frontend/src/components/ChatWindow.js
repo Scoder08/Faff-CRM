@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ScheduleCallModal from './ScheduleCallModal';
 import UserNotesModal from './UserNotesModal';
+import './InviteModal.css';
 import { IoSend, IoAttach, IoEllipsisHorizontal, IoLinkOutline, IoCalendarOutline } from 'react-icons/io5';
-import { BiNote, BiUser, BiBlock } from 'react-icons/bi';
+import { BiNote } from 'react-icons/bi';
 import { BsCheck, BsCheckAll } from 'react-icons/bs';
 import { MdError } from 'react-icons/md';
 import { AiOutlineClockCircle } from 'react-icons/ai';
 import { formatMessageTimeIST } from '../utils/dateUtils';
+import config from '../config';
 
 const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleCall }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -14,6 +16,9 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [groupName, setGroupName] = useState('');
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const prevMessagesLength = useRef(0);
@@ -78,6 +83,45 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
   const handleStatusChange = (newStatus) => {
     onStatusUpdate(chat.phone, newStatus);
     setShowStatusMenu(false);
+  };
+  
+  const handleSendInvite = async () => {
+    if (!groupName.trim()) {
+      alert('Please enter a group name');
+      return;
+    }
+    if (sendingInvite) return;
+    
+    setSendingInvite(true);
+    try {
+      const response = await fetch(`${config.API_URL}/api/send-invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: chat.phone,
+          name: groupName.trim(),
+          referrerName: chat.referredBy || ''
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Show success message (you could add a toast notification here)
+        alert(`Invite sent successfully to ${chat.name}!`);
+        setShowInviteModal(false);
+        setGroupName('');
+      } else {
+        alert(`Failed to send invite: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error sending invite:', error);
+      alert('Failed to send invite. Please try again.');
+    } finally {
+      setSendingInvite(false);
+    }
   };
 
 
@@ -153,9 +197,20 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
               </div>
             )}
           </div>
-          <button className="invite-btn" title="Send invite link">
-            <IoLinkOutline />
-          </button>
+          {chat.status !== 'onboarded' && (
+            <button 
+              className="invite-btn" 
+              title="Send invite link"
+              onClick={() => setShowInviteModal(true)}
+              disabled={sendingInvite}
+              style={{
+                opacity: sendingInvite ? 0.6 : 1,
+                cursor: sendingInvite ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {sendingInvite ? '...' : <IoLinkOutline />}
+            </button>
+          )}
           <button className="schedule-btn" onClick={() => setShowScheduleModal(true)}>
             <IoCalendarOutline />
           </button>
@@ -254,6 +309,55 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
         onClose={() => setShowNotesModal(false)}
         user={chat}
       />
+      
+      {/* Invite Modal */}
+      {showInviteModal && (
+        <div className="invite-modal-overlay" onClick={() => setShowInviteModal(false)}>
+          <div className="invite-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="invite-modal-header">
+              <h3>Send Invite Link</h3>
+              <button className="invite-close-btn" onClick={() => setShowInviteModal(false)}>×</button>
+            </div>
+            <div className="invite-modal-body">
+              <label htmlFor="group-name">Enter Group Name:</label>
+              <input
+                id="group-name"
+                type="text"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder="e.g., Marketing Team"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && groupName.trim()) {
+                    handleSendInvite();
+                  }
+                }}
+              />
+              {chat.referredBy && (
+                <p className="referrer-note">ℹ️ Referrer "{chat.referredBy}" will be included in the message</p>
+              )}
+            </div>
+            <div className="invite-modal-footer">
+              <button 
+                className="invite-cancel-btn" 
+                onClick={() => {
+                  setShowInviteModal(false);
+                  setGroupName('');
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="invite-confirm-btn" 
+                onClick={handleSendInvite}
+                disabled={sendingInvite || !groupName.trim()}
+              >
+                {sendingInvite ? 'Sending...' : 'Send Invite'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
