@@ -1,0 +1,46 @@
+runtime: python39
+env: flex
+
+# Flex environment for WebSocket support
+entrypoint: gunicorn --worker-class eventlet -w 1 --bind :$PORT --timeout 120 app:app
+
+runtime_config:
+  operating_system: "ubuntu22"
+  runtime_version: "3.9"
+
+# Resources configuration for better performance
+resources:
+  cpu: 2
+  memory_gb: 2.5
+  disk_size_gb: 10
+
+# Scaling configuration
+automatic_scaling:
+  min_num_instances: 1
+  max_num_instances: 10
+  cool_down_period_sec: 120
+  cpu_utilization:
+    target_utilization: 0.6
+
+# Network configuration for WebSockets
+network:
+  session_affinity: true
+  
+# Environment variables (add your actual values in GCP Console)
+env_variables:
+  FLASK_ENV: "production"
+  
+# Health check configuration
+liveness_check:
+  path: "/health"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+readiness_check:
+  path: "/health"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
