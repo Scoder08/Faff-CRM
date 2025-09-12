@@ -114,21 +114,64 @@ function App() {
   };
 
   const sendMessage = async (phone, message) => {
+    // Generate a temporary ID for the optimistic message
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
+    const optimisticMessage = {
+      id: tempId,
+      tempId: tempId,
+      sender: 'user',
+      text: message,
+      timestamp: new Date().toISOString(),
+      status: 'pending',
+      phone: phone
+    };
+
+    // Immediately add the message to the UI with pending status
+    setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+
     try {
       const response = await fetch(`${config.API_URL}/api/send-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone, message }),
+        body: JSON.stringify({ phone, message, tempId }),
       });
       
       if (response.ok) {
-        fetchMessages(phone);
+        const data = await response.json();
+        
+        // Update the message with the real ID and sent status
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.tempId === tempId 
+              ? { ...msg, id: data.messageId || msg.id, status: 'sent', tempId: undefined }
+              : msg
+          )
+        );
+        
+        // Fetch updated chats to refresh last message
         fetchChats();
+      } else {
+        // Mark message as failed
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.tempId === tempId 
+              ? { ...msg, status: 'failed' }
+              : msg
+          )
+        );
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      // Mark message as failed
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.tempId === tempId 
+            ? { ...msg, status: 'failed' }
+            : msg
+        )
+      );
     }
   };
 

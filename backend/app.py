@@ -205,6 +205,7 @@ def send_message():
     data = request.json
     phone = data['phone']
     message = data['message']
+    temp_id = data.get('tempId')  # Get temporary ID from frontend
     
     # Send via WhatsApp API
     response = send_whatsapp_message(phone, message)
@@ -224,19 +225,43 @@ def send_message():
             'status': 'sent',
             'whatsappMessageId': whatsapp_message_id
         }
-        db.messages.insert_one(message_doc)
+        result = db.messages.insert_one(message_doc)
+        message_id = str(result.inserted_id)
         
         # Emit to frontend
         socketio.emit('new_message', {
             'phone': phone,
             'message': message,
             'direction': 'outbound',
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'whatsappMessageId': whatsapp_message_id,
+            'messageId': message_id,
+            'tempId': temp_id  # Send back temp ID for matching
         })
         
-        return jsonify({'success': True})
+        # Update chat's last message
+        db.chats.update_one(
+            {'phone': phone},
+            {
+                '$set': {
+                    'lastMessage': message,
+                    'lastMessageTime': datetime.now()
+                }
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'messageId': message_id,
+            'whatsappMessageId': whatsapp_message_id,
+            'tempId': temp_id
+        })
     
-    return jsonify({'success': False, 'error': response}), 400
+    return jsonify({
+        'success': False, 
+        'error': response.get('error', 'Failed to send message') if isinstance(response, dict) else str(response),
+        'tempId': temp_id
+    }), 400
 
 @app.route('/api/schedule-call', methods=['POST'])
 def schedule_call():

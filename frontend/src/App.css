@@ -634,6 +634,49 @@ body {
 
 .status-icon.pending {
   color: #999;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+/* Retry button for failed messages */
+.retry-btn {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: #ff4757;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retry-btn:hover {
+  background: #ff3838;
+}
+
+/* Failed message styling */
+.message.outbound.failed {
+  opacity: 0.7;
+}
+
+.message.outbound.failed .message-content {
+  background: #ffe5e5;
+}
+
+/* Pending message styling */
+.message.outbound .message-content {
+  transition: all 0.3s ease;
+}
+
+.message.outbound[data-status="pending"] .message-content {
+  opacity: 0.7;
 }
 
 /* Message Input */

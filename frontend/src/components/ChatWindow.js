@@ -172,16 +172,26 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`message ${message.direction === 'outbound' ? 'outbound' : 'inbound'}`}
+              className={`message ${message.direction === 'outbound' || message.sender === 'user' ? 'outbound' : 'inbound'} ${message.status === 'failed' ? 'failed' : ''}`}
+              data-status={message.status}
             >
               <div className="message-content">
-                {message.message}
+                {message.text || message.message}
+                {message.status === 'failed' && (
+                  <button 
+                    className="retry-btn"
+                    onClick={() => onSendMessage(chat.phone, message.text || message.message)}
+                    title="Retry sending"
+                  >
+                    Retry
+                  </button>
+                )}
               </div>
               <div className="message-meta">
                 <span className="message-time">
                   {formatTime(message.timestamp)}
                 </span>
-                {message.direction === 'outbound' && (
+                {(message.direction === 'outbound' || message.sender === 'user') && (
                   <span className="message-status">
                     {getMessageStatusIcon(message.status)}
                   </span>
