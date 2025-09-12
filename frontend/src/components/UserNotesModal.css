@@ -39,7 +39,6 @@
 .close-btn {
   background: none;
   border: none;
-  font-size: 24px;
   color: #666;
   cursor: pointer;
   padding: 0;
@@ -50,6 +49,11 @@
   justify-content: center;
   border-radius: 50%;
   transition: background 0.2s;
+  width: 8%;
+}
+
+.close-btn svg {
+  font-size: 24px;
 }
 
 .close-btn:hover {

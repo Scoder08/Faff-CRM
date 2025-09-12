@@ -6,6 +6,7 @@ import { BiNote, BiUser, BiBlock } from 'react-icons/bi';
 import { BsCheck, BsCheckAll } from 'react-icons/bs';
 import { MdError } from 'react-icons/md';
 import { AiOutlineClockCircle } from 'react-icons/ai';
+import { formatMessageTimeIST } from '../utils/dateUtils';
 
 const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleCall }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -14,34 +15,54 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const prevMessagesLength = useRef(0);
   const isInitialLoad = useRef(true);
 
   const scrollToBottom = (instant = false) => {
-    messagesEndRef.current?.scrollIntoView({ 
-      behavior: instant ? "instant" : "smooth" 
+    // Use requestAnimationFrame to ensure DOM has painted
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          const container = messagesContainerRef.current;
+          // Force instant scroll to bottom
+          container.scrollTop = container.scrollHeight + 1000;
+        }
+        // Also use scrollIntoView as backup
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ 
+            behavior: instant ? "instant" : "smooth",
+            block: "end",
+            inline: "nearest"
+          });
+        }
+      }, instant ? 0 : 100);
     });
   };
 
   useEffect(() => {
-    // Check if this is initial load or just new messages
+    // Always scroll to bottom when messages change
     if (messages.length > 0) {
-      if (isInitialLoad.current || prevMessagesLength.current === 0) {
-        // Initial load or switching chats - scroll instantly
-        scrollToBottom(true);
-        isInitialLoad.current = false;
-      } else if (messages.length > prevMessagesLength.current) {
-        // New message added - smooth scroll
-        scrollToBottom(false);
-      }
-      prevMessagesLength.current = messages.length;
+      // Multiple timeouts to ensure scroll happens
+      scrollToBottom(true);
+      // Backup scroll after a short delay
+      setTimeout(() => scrollToBottom(true), 100);
+      // Final backup scroll
+      setTimeout(() => scrollToBottom(true), 300);
     }
+    prevMessagesLength.current = messages.length;
   }, [messages]);
 
-  // Reset initial load flag when chat changes
+  // Reset and scroll when chat changes
   useEffect(() => {
     isInitialLoad.current = true;
     prevMessagesLength.current = 0;
+    // Immediate scroll
+    scrollToBottom(true);
+    // Multiple attempts to ensure it works
+    setTimeout(() => scrollToBottom(true), 50);
+    setTimeout(() => scrollToBottom(true), 150);
+    setTimeout(() => scrollToBottom(true), 500);
   }, [chat?.phone]);
 
   const handleSendMessage = (e) => {
@@ -49,6 +70,8 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
     if (newMessage.trim()) {
       onSendMessage(chat.phone, newMessage);
       setNewMessage('');
+      // Scroll to bottom after sending message
+      setTimeout(() => scrollToBottom(false), 100);
     }
   };
 
@@ -57,13 +80,6 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
     setShowStatusMenu(false);
   };
 
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -168,7 +184,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
       </div>
 
       <div className="messages-container">
-        <div className="messages">
+        <div className="messages" ref={messagesContainerRef}>
           {messages.map((message) => (
             <div
               key={message.id}
@@ -189,7 +205,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
               </div>
               <div className="message-meta">
                 <span className="message-time">
-                  {formatTime(message.timestamp)}
+                  {formatMessageTimeIST(message.timestamp)}
                 </span>
                 {(message.direction === 'outbound' || message.sender === 'user') && (
                   <span className="message-status">

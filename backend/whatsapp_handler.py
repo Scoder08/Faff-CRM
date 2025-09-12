@@ -139,7 +139,8 @@ def parse_message_data(data):
         # Extract basic info
         phone = message_data['from']
         message_id = message_data['id']
-        timestamp = datetime.fromtimestamp(int(message_data['timestamp']))
+        # Convert timestamp to IST
+        timestamp = datetime.fromtimestamp(int(message_data['timestamp']), tz=pytz.timezone('Asia/Kolkata'))
         
         # Handle different message types
         message_type = message_data.get('type', 'text')
@@ -316,7 +317,7 @@ def process_status_update(db, socketio, data):
                         message_id = status.get('id')
                         status_type = status.get('status')  # sent, delivered, read, failed
                         recipient = status.get('recipient_id')
-                        timestamp = datetime.fromtimestamp(int(status.get('timestamp', 0)))
+                        timestamp = datetime.fromtimestamp(int(status.get('timestamp', 0)), tz=pytz.timezone('Asia/Kolkata'))
                         
                         print(f"Status update: Message {message_id} to {recipient} is {status_type}")
                         

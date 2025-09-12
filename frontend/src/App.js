@@ -9,6 +9,7 @@ import ReferralTracking from './components/ReferralTracking';
 import { IoNotifications } from 'react-icons/io5';
 import config from './config';
 import notificationManager from './utils/notification';
+import { getISTTimestamp } from './utils/dateUtils';
 import './App.css';
 
 function App() {
@@ -18,10 +19,15 @@ function App() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showReferralTracking, setShowReferralTracking] = useState(false);
   const selectedChatRef = useRef(selectedChat);
   const [socket, setSocket] = useState(null);
+  const messagesCache = useRef({}); // Cache messages by phone number
+  const cacheTimestamps = useRef({}); // Track when cache was last updated
+  const [unreadCounts, setUnreadCounts] = useState({}); // Track unread messages per chat
+  const [newMessageIndicators, setNewMessageIndicators] = useState({}); // Track which chats have new messages
 
   // Initialize socket only when user is authenticated
   useEffect(() => {
@@ -156,6 +162,27 @@ function App() {
       
       // Update messages if it's for current chat using ref
       const currentChat = selectedChatRef.current;
+      
+      // Track new messages for other chats
+      if (messageData.direction === 'inbound' && (!currentChat || messageData.phone !== currentChat.phone)) {
+        // Mark this chat as having new messages
+        setNewMessageIndicators(prev => ({
+          ...prev,
+          [messageData.phone]: true
+        }));
+        
+        // Increment unread count
+        setUnreadCounts(prev => ({
+          ...prev,
+          [messageData.phone]: (prev[messageData.phone] || 0) + 1
+        }));
+        
+        // Invalidate cache for this chat so it refreshes next time
+        if (messagesCache.current[messageData.phone]) {
+          delete cacheTimestamps.current[messageData.phone];
+        }
+      }
+      
       if (currentChat && messageData.phone === currentChat.phone) {
         // Add the new message directly and sort
         const newMessage = {
@@ -201,9 +228,16 @@ function App() {
           // If no duplicate and not replacing optimistic, add as new message
           const updatedMessages = [...prevMessages, newMessage];
           // Sort by timestamp to maintain chronological order
-          return updatedMessages.sort((a, b) => 
+          const sorted = updatedMessages.sort((a, b) => 
             new Date(a.timestamp) - new Date(b.timestamp)
           );
+          
+          // Update cache if this is for the current chat
+          if (messageData.phone === currentChat.phone) {
+            messagesCache.current[messageData.phone] = sorted;
+          }
+          
+          return sorted;
         });
       }
       
@@ -273,7 +307,24 @@ function App() {
     }
   };
 
-  const fetchMessages = async (phone) => {
+  const fetchMessages = async (phone, forceRefresh = false) => {
+    // Check if cache is stale (older than 30 seconds)
+    const cacheAge = cacheTimestamps.current[phone] 
+      ? Date.now() - cacheTimestamps.current[phone] 
+      : Infinity;
+    const isStale = cacheAge > 30000; // 30 seconds
+    
+    // Check cache first unless force refresh or stale
+    if (!forceRefresh && !isStale && messagesCache.current[phone]) {
+      console.log('Using cached messages for:', phone);
+      setMessages(messagesCache.current[phone]);
+      
+      // Still fetch in background to ensure freshness
+      fetchMessagesInBackground(phone);
+      return;
+    }
+
+    setMessagesLoading(true);
     try {
       const response = await fetch(`${config.API_URL}/api/messages/${phone}`);
       const data = await response.json();
@@ -281,15 +332,76 @@ function App() {
       const sortedMessages = data.sort((a, b) => 
         new Date(a.timestamp) - new Date(b.timestamp)
       );
+      
+      // Cache the messages with timestamp
+      messagesCache.current[phone] = sortedMessages;
+      cacheTimestamps.current[phone] = Date.now();
+      
+      // Clean up old cache entries if too many (keep last 10 chats)
+      const cacheKeys = Object.keys(messagesCache.current);
+      if (cacheKeys.length > 10) {
+        const oldestKey = cacheKeys[0];
+        delete messagesCache.current[oldestKey];
+        delete cacheTimestamps.current[oldestKey];
+      }
+      
       setMessages(sortedMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  const fetchMessagesInBackground = async (phone) => {
+    try {
+      const response = await fetch(`${config.API_URL}/api/messages/${phone}`);
+      const data = await response.json();
+      const sortedMessages = data.sort((a, b) => 
+        new Date(a.timestamp) - new Date(b.timestamp)
+      );
+      
+      // Update cache silently
+      messagesCache.current[phone] = sortedMessages;
+      cacheTimestamps.current[phone] = Date.now();
+      
+      // Update UI if still viewing this chat
+      if (selectedChatRef.current && selectedChatRef.current.phone === phone) {
+        setMessages(sortedMessages);
+      }
+    } catch (error) {
+      console.error('Background fetch error:', error);
     }
   };
 
   const handleChatSelect = (chat) => {
+    // Immediately switch chat (optimistic update)
     setSelectedChat(chat);
-    fetchMessages(chat.phone);
+    
+    // Clear new message indicator for this chat
+    setNewMessageIndicators(prev => {
+      const updated = { ...prev };
+      delete updated[chat.phone];
+      return updated;
+    });
+    
+    // Clear unread count for this chat
+    setUnreadCounts(prev => {
+      const updated = { ...prev };
+      delete updated[chat.phone];
+      return updated;
+    });
+    
+    // Show cached messages immediately if available
+    if (messagesCache.current[chat.phone]) {
+      setMessages(messagesCache.current[chat.phone]);
+      // Always fetch fresh data to ensure we have latest
+      fetchMessages(chat.phone, false);
+    } else {
+      // No cache, show loading and fetch
+      setMessages([]);
+      fetchMessages(chat.phone);
+    }
   };
 
   const sendMessage = async (phone, message) => {
@@ -350,7 +462,7 @@ function App() {
       tempId: tempId,
       message: message,  // Changed from 'text' to 'message' for consistency
       direction: 'outbound',
-      timestamp: new Date().toISOString(),
+      timestamp: getISTTimestamp(),  // Use IST timestamp
       status: 'pending',
       phone: phone,
       sentBy: user?.id,
@@ -404,7 +516,7 @@ function App() {
         setChats(prevChats => 
           prevChats.map(chat => 
             chat.phone === phone 
-              ? { ...chat, lastMessage: message, lastMessageTime: new Date().toISOString() }
+              ? { ...chat, lastMessage: message, lastMessageTime: getISTTimestamp() }
               : chat
           )
         );
@@ -627,17 +739,29 @@ function App() {
           selectedChat={selectedChat}
           onChatSelect={handleChatSelect}
           onStatusUpdate={updateStatus}
+          unreadCounts={unreadCounts}
+          newMessageIndicators={newMessageIndicators}
         />
       </div>
       <div className="app-main">
         {selectedChat ? (
-          <ChatWindow 
-            chat={selectedChat}
-            messages={messages}
-            onSendMessage={sendMessage}
-            onStatusUpdate={updateStatus}
-            onScheduleCall={scheduleCall}
-          />
+          <div style={{ position: 'relative', height: '100%' }}>
+            <ChatWindow 
+              chat={selectedChat}
+              messages={messages}
+              onSendMessage={sendMessage}
+              onStatusUpdate={updateStatus}
+              onScheduleCall={scheduleCall}
+            />
+            {messagesLoading && messages.length === 0 && (
+              <div className="messages-loading-overlay">
+                <div className="messages-loading-content">
+                  <div className="messages-loading-spinner"></div>
+                  <p>Loading messages...</p>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="no-chat-selected">
             <h2>Select a chat to start messaging</h2>

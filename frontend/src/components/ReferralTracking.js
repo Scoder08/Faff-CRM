@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BiSearch } from 'react-icons/bi';
 import './ReferralTracking.css';
 import config from '../config';
 
@@ -193,7 +194,7 @@ const ReferralTracking = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
           />
-          <span className="search-icon">🔍</span>
+          <BiSearch className="search-icon" />
         </div>
         
         <div className="filters">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { IoClose } from 'react-icons/io5';
 import config from '../config';
 import './UserNotesModal.css';
 
@@ -72,7 +73,7 @@ const UserNotesModal = ({ isOpen, onClose, user }) => {
       <div className="notes-modal" onClick={(e) => e.stopPropagation()}>
         <div className="notes-header">
           <h2>User Notes</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button className="close-btn" onClick={onClose}><IoClose /></button>
         </div>
 
         <div className="notes-user-info">
