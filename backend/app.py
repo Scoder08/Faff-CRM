@@ -12,7 +12,8 @@ from flask_cors import CORS
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+import pytz
 import os
 import sys
 from dotenv import load_dotenv
@@ -219,8 +220,8 @@ def send_message():
         # Get WhatsApp message ID for tracking status
         whatsapp_message_id = response['messages'][0].get('id')
         
-        # Prepare message document with user tracking
-        timestamp = datetime.now()
+        # Prepare message document with user tracking (using IST)
+        timestamp = datetime.now(pytz.timezone('Asia/Kolkata'))
         message_doc = {
             'phone': phone,
             'message': message,
@@ -329,7 +330,7 @@ def schedule_call():
         event.add('summary', f'Onboarding Call with {name}')
         event.add('dtstart', call_date)
         event.add('dtend', call_date + timedelta(hours=1))
-        event.add('dtstamp', datetime.now())
+        event.add('dtstamp', datetime.now(pytz.timezone('Asia/Kolkata')))
         event.add('uid', str(uuid.uuid4()))
         event.add('description', f'Onboarding call with {name}\\nPhone: {phone}\\n\\nNotes:\\n{notes}')
         event.add('location', f'WhatsApp Call to {phone}')
@@ -452,7 +453,7 @@ Looking forward to speaking with you!'''
             'scheduledDate': call_date,
             'email': email,
             'notes': notes,
-            'createdAt': datetime.now(),
+            'createdAt': datetime.now(pytz.timezone('Asia/Kolkata')),
             'status': 'scheduled'
         }
         db.scheduled_calls.insert_one(call_doc)
@@ -498,7 +499,7 @@ def download_ics(phone):
         event.add('summary', f'Onboarding Call with {call["name"]}')
         event.add('dtstart', call['scheduledDate'])
         event.add('dtend', call['scheduledDate'] + timedelta(hours=1))
-        event.add('dtstamp', datetime.now())
+        event.add('dtstamp', datetime.now(pytz.timezone('Asia/Kolkata')))
         event.add('uid', str(uuid.uuid4()))
         event.add('description', f'Onboarding call with {call["name"]}\\nPhone: {phone}\\n\\nNotes:\\n{call.get("notes", "")}')
         event.add('location', f'WhatsApp Call to {phone}')
@@ -551,7 +552,7 @@ def user_notes(phone):
             new_note = {
                 '_id': str(ObjectId()),
                 'text': note_text,
-                'createdAt': datetime.now(),
+                'createdAt': datetime.now(pytz.timezone('Asia/Kolkata')),
                 'addedBy': data.get('addedBy', 'Admin')  # You can pass the actual user name from frontend
             }
             
@@ -562,7 +563,7 @@ def user_notes(phone):
                     '$push': {'notes': new_note},
                     '$setOnInsert': {
                         'phone': phone,
-                        'createdAt': datetime.now()
+                        'createdAt': datetime.now(pytz.timezone('Asia/Kolkata'))
                     }
                 },
                 upsert=True

@@ -149,18 +149,18 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
                 }}>
                   <BiNote className="menu-icon" /> Notes
                 </button>
-                <button onClick={() => {
+                {/* <button onClick={() => {
                   // Add more options here
                   setShowMoreMenu(false);
                 }}>
                   <BiUser className="menu-icon" /> Profile
-                </button>
-                <button onClick={() => {
+                </button> */}
+                {/* <button onClick={() => {
                   // Add block option
                   setShowMoreMenu(false);
                 }}>
                   <BiBlock className="menu-icon" /> Block
-                </button>
+                </button> */}
               </div>
             )}
           </div>

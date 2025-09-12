@@ -1,6 +1,7 @@
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+import pytz
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -222,7 +223,7 @@ def process_incoming_message(db, socketio, parsed_data):
             'name': contact_name,
             'status': 'priority',
             'referredBy': referred_by,
-            'createdAt': datetime.now(),
+            'createdAt': datetime.now(pytz.timezone('Asia/Kolkata')),
             'lastMessageAt': timestamp
         }
         print(f"Creating new user: {user_doc}")
@@ -253,7 +254,7 @@ def process_incoming_message(db, socketio, parsed_data):
             'phone': phone,
             'message': reply_text,
             'direction': 'outbound',
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')),
             'messageType': 'interactive' if buttons else 'text',
             'isRead': True,
             'status': message_status,
@@ -267,7 +268,7 @@ def process_incoming_message(db, socketio, parsed_data):
                 'phone': phone,
                 'message': reply_text,
                 'direction': 'outbound',
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
             })
     
     # Emit incoming message to frontend

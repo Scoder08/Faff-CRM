@@ -155,7 +155,23 @@ function App() {
       // Update messages if it's for current chat using ref
       const currentChat = selectedChatRef.current;
       if (currentChat && messageData.phone === currentChat.phone) {
-        fetchMessages(currentChat.phone);
+        // Add the new message directly and sort
+        const newMessage = {
+          id: messageData.messageId || `msg_${Date.now()}`,
+          message: messageData.message,
+          direction: messageData.direction,
+          timestamp: messageData.timestamp,
+          status: messageData.status || 'sent',
+          whatsappMessageId: messageData.whatsappMessageId
+        };
+        
+        setMessages(prevMessages => {
+          const updatedMessages = [...prevMessages, newMessage];
+          // Sort by timestamp to maintain chronological order
+          return updatedMessages.sort((a, b) => 
+            new Date(a.timestamp) - new Date(b.timestamp)
+          );
+        });
       }
       
       // Play notification sound for incoming messages
@@ -228,7 +244,11 @@ function App() {
     try {
       const response = await fetch(`${config.API_URL}/api/messages/${phone}`);
       const data = await response.json();
-      setMessages(data);
+      // Ensure messages are sorted by timestamp
+      const sortedMessages = data.sort((a, b) => 
+        new Date(a.timestamp) - new Date(b.timestamp)
+      );
+      setMessages(sortedMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -304,8 +324,14 @@ function App() {
       sentByName: getUserName()
     };
 
-    // Immediately add the message to the UI with pending status
-    setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+    // Immediately add the message to the UI with pending status (sorted)
+    setMessages(prevMessages => {
+      const newMessages = [...prevMessages, optimisticMessage];
+      // Sort by timestamp to maintain chronological order
+      return newMessages.sort((a, b) => 
+        new Date(a.timestamp) - new Date(b.timestamp)
+      );
+    });
 
     try {
       const response = await fetch(`${config.API_URL}/api/send-message`, {
