@@ -166,6 +166,34 @@ function App() {
         };
         
         setMessages(prevMessages => {
+          // Check if message already exists (by ID, WhatsApp ID, or if it's an optimistic update)
+          const exists = prevMessages.some(msg => {
+            // Check by message ID
+            if (msg.id === newMessage.id) return true;
+            
+            // Check by WhatsApp message ID
+            if (newMessage.whatsappMessageId && msg.whatsappMessageId === newMessage.whatsappMessageId) return true;
+            
+            // Check if this is replacing an optimistic message (same message, direction, and close timestamp)
+            if (messageData.direction === 'outbound' && msg.status === 'pending' && 
+                msg.message === messageData.message && msg.phone === messageData.phone) {
+              // Replace the optimistic message with the real one
+              const index = prevMessages.findIndex(m => m === msg);
+              if (index !== -1) {
+                const updated = [...prevMessages];
+                updated[index] = newMessage;
+                return updated.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+              }
+            }
+            
+            return false;
+          });
+          
+          if (exists) {
+            console.log('Message already exists, skipping duplicate:', newMessage.id);
+            return prevMessages;
+          }
+          
           const updatedMessages = [...prevMessages, newMessage];
           // Sort by timestamp to maintain chronological order
           return updatedMessages.sort((a, b) => 
@@ -315,8 +343,8 @@ function App() {
     const optimisticMessage = {
       id: tempId,
       tempId: tempId,
-      sender: 'user',
-      text: message,
+      message: message,  // Changed from 'text' to 'message' for consistency
+      direction: 'outbound',
       timestamp: new Date().toISOString(),
       status: 'pending',
       phone: phone,

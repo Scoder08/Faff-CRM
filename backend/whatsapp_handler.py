@@ -188,6 +188,12 @@ def process_incoming_message(db, socketio, parsed_data):
     is_new_user = user is None
     print(f"User lookup for {phone}: {'NEW USER' if is_new_user else 'EXISTING USER'}")
     
+    # Check if message already exists (to prevent duplicates)
+    existing_message = db.messages.find_one({'messageId': message_id})
+    if existing_message:
+        print(f"Message {message_id} already exists, skipping duplicate")
+        return True
+    
     # Save incoming message
     message_doc = {
         'messageId': message_id,
@@ -248,6 +254,13 @@ def process_incoming_message(db, socketio, parsed_data):
         if 'messages' in api_response and len(api_response['messages']) > 0:
             message_status = 'sent'
             whatsapp_message_id = api_response['messages'][0].get('id')
+        
+        # Check if this outbound message already exists
+        if whatsapp_message_id:
+            existing_reply = db.messages.find_one({'whatsappMessageId': whatsapp_message_id})
+            if existing_reply:
+                print(f"Outbound message {whatsapp_message_id} already exists, skipping duplicate")
+                return True
         
         # Save outbound message
         reply_doc = {

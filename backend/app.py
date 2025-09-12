@@ -251,6 +251,12 @@ def send_message():
         
         # Use eventlet to spawn async database operations
         def async_db_operations():
+            # Check for duplicate before inserting
+            existing = db.messages.find_one({'whatsappMessageId': whatsapp_message_id})
+            if existing:
+                print(f"Message with WhatsApp ID {whatsapp_message_id} already exists")
+                return
+            
             # Save message to database
             result = db.messages.insert_one(message_doc)
             
