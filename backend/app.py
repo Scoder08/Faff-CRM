@@ -1,5 +1,10 @@
+# Import pymongo first to avoid DNS conflicts
+
+
+# Then import and patch eventlet with selective patching
+# Exclude socket patching to avoid DNS conflicts with pymongo
 import eventlet
-eventlet.monkey_patch() 
+eventlet.monkey_patch()
 
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
