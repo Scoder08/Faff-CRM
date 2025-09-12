@@ -185,6 +185,7 @@ def get_chats():
             'name': user['name'],
             'status': user['status'],
             'referredBy': user.get('referredBy'),
+            'isPaid': user.get('isPaid', False),
             'lastMessage': last_message['message'] if last_message else '',
             'lastMessageTime': user['lastMessageAt'].isoformat(),
             'unreadCount': unread_count
@@ -660,7 +661,67 @@ def update_status():
     cache['chats'] = None
     cache['chats_timestamp'] = None
     
+    # Emit status update to all connected clients
+    socketio.emit('status_updated', {
+        'phone': phone,
+        'status': status
+    })
+    
     return jsonify({'success': True})
+
+@app.route('/api/update-payment-status', methods=['POST'])
+def update_payment_status():
+    """Update user payment status - public endpoint for external use"""
+    data = request.json
+    phone = data.get('phone')
+    is_paid = data.get('isPaid', False)
+    
+    if not phone:
+        return jsonify({'error': 'Phone number is required'}), 400
+    
+    # Update user payment status and set status to onboarded if paid
+    update_data = {
+        'isPaid': is_paid,
+        'paymentUpdatedAt': datetime.now(pytz.timezone('Asia/Kolkata'))
+    }
+    
+    # If user paid, set status to onboarded
+    if is_paid:
+        update_data['status'] = 'onboarded'
+    
+    result = db.users.update_one(
+        {'phone': phone},
+        {'$set': update_data}
+    )
+    
+    if result.matched_count == 0:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Invalidate cache
+    cache['chats'] = None
+    cache['chats_timestamp'] = None
+    
+    # Emit payment status update to all connected clients
+    socketio.emit('payment_status_updated', {
+        'phone': phone,
+        'isPaid': is_paid,
+        'status': 'onboarded' if is_paid else None
+    })
+    
+    # Also emit status update if user is now onboarded
+    if is_paid:
+        socketio.emit('status_updated', {
+            'phone': phone,
+            'status': 'onboarded'
+        })
+    
+    return jsonify({
+        'success': True, 
+        'message': f'Payment status updated for {phone}',
+        'phone': phone,
+        'isPaid': is_paid,
+        'status': 'onboarded' if is_paid else None
+    })
 
 @app.route('/api/update-subscription', methods=['POST'])
 def update_subscription():

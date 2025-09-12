@@ -105,7 +105,12 @@ function App() {
           userId: user.id,
           userEmail: user.primaryEmailAddress?.emailAddress,
           userName: userName
-        }
+        },
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: Infinity,
+        timeout: 20000
       });
       setSocket(newSocket);
       
@@ -146,6 +151,17 @@ function App() {
   useEffect(() => {
     selectedChatRef.current = selectedChat;
   }, [selectedChat]);
+  
+  // Keep selectedChat in sync with chats list updates
+  useEffect(() => {
+    if (selectedChat && chats.length > 0) {
+      const updatedChat = chats.find(chat => chat.phone === selectedChat.phone);
+      if (updatedChat && (updatedChat.status !== selectedChat.status || updatedChat.isPaid !== selectedChat.isPaid)) {
+        console.log('Syncing selectedChat with updated chat data:', updatedChat);
+        setSelectedChat(updatedChat);
+      }
+    }
+  }, [chats, selectedChat?.phone]); // Only depend on phone to avoid loops
 
   useEffect(() => {
     if (!socket || !isSignedIn) return;
@@ -153,6 +169,21 @@ function App() {
     // Socket listeners
     socket.on('connected', (data) => {
       console.log('Connected to server:', data);
+      // Refetch chats on reconnection to get latest data
+      fetchChats();
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('Disconnected from server');
+    });
+    
+    socket.on('reconnect', () => {
+      console.log('Reconnected to server');
+      // Refetch everything on reconnect
+      fetchChats();
+      if (selectedChatRef.current) {
+        fetchMessages(selectedChatRef.current.phone, true);
+      }
     });
 
     socket.on('new_message', async (messageData) => {
@@ -253,6 +284,73 @@ function App() {
       }
     });
 
+    // Listen for status updates from other platforms
+    socket.on('status_updated', (data) => {
+      console.log('Status updated:', data);
+      // Update the specific chat's status
+      setChats(prevChats => 
+        prevChats.map(chat => 
+          chat.phone === data.phone 
+            ? { ...chat, status: data.status }
+            : chat
+        )
+      );
+      
+      // Also update selectedChat if it's the same user - force new object
+      setSelectedChat(prevSelected => {
+        if (prevSelected && prevSelected.phone === data.phone) {
+          console.log('Updating selectedChat status to:', data.status);
+          return { 
+            ...prevSelected, 
+            status: data.status,
+            _updated: Date.now() // Force React to see this as a new object
+          };
+        }
+        return prevSelected;
+      });
+      
+      // Invalidate cache for this chat
+      if (messagesCache.current[data.phone]) {
+        delete cacheTimestamps.current[data.phone];
+      }
+    });
+    
+    // Listen for payment status updates
+    socket.on('payment_status_updated', (data) => {
+      console.log('Payment status updated:', data);
+      // Update the specific chat's payment status and status if provided
+      setChats(prevChats => 
+        prevChats.map(chat => 
+          chat.phone === data.phone 
+            ? { 
+                ...chat, 
+                isPaid: data.isPaid,
+                ...(data.status && { status: data.status })
+              }
+            : chat
+        )
+      );
+      
+      // Also update selectedChat if it's the same user - force new object
+      setSelectedChat(prevSelected => {
+        if (prevSelected && prevSelected.phone === data.phone) {
+          console.log('Updating selectedChat payment and status:', data);
+          return {
+            ...prevSelected,
+            isPaid: data.isPaid,
+            ...(data.status && { status: data.status }),
+            _updated: Date.now() // Force React to see this as a new object
+          };
+        }
+        return prevSelected;
+      });
+      
+      // Invalidate cache for this chat
+      if (messagesCache.current[data.phone]) {
+        delete cacheTimestamps.current[data.phone];
+      }
+    });
+    
     // Listen for message status updates
     socket.on('message_status_update', (statusData) => {
       console.log('Message status update:', statusData);
@@ -278,7 +376,11 @@ function App() {
 
     return () => {
       socket.off('connected');
+      socket.off('disconnect');
+      socket.off('reconnect');
       socket.off('new_message');
+      socket.off('status_updated');
+      socket.off('payment_status_updated');
       socket.off('message_status_update');
     };
   }, [socket, isSignedIn]); // Re-setup when socket or auth changes

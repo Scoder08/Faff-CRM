@@ -31,6 +31,7 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCou
       case 'call_scheduled': return '#00d2d3';
       case 'not_interested': return '#ff7675';
       case 'pending_call': return '#74b9ff';
+      case 'onboarded': return '#27ae60';
       default: return '#ddd';
     }
   };
@@ -43,6 +44,7 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCou
       case 'call_scheduled': return 'Call Scheduled';
       case 'not_interested': return 'Not Interested';
       case 'pending_call': return 'Pending Call';
+      case 'onboarded': return 'Onboarded';
       default: return status;
     }
   };
@@ -97,6 +99,32 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCou
                 >
                   {getStatusLabel(chat.status)}
                 </span>
+                {chat.isPaid && (
+                  <span className="payment-badge" style={{
+                    backgroundColor: '#27ae60',
+                    color: 'white',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    marginLeft: '6px'
+                  }}>
+                    PAID
+                  </span>
+                )}
+                {!chat.isPaid && (
+                  <span className="payment-badge" style={{
+                    backgroundColor: '#f0f2f5',
+                    color: 'black',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    marginLeft: '6px'
+                  }}>
+                    UNPAID
+                  </span>
+                )}
                 {chat.referredBy && (
                   <span className="referral-badge">
                     Ref: {chat.referredBy}

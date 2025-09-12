@@ -89,6 +89,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
       case 'call_scheduled': return '#00d2d3';
       case 'not_interested': return '#ff7675';
       case 'pending_call': return '#74b9ff';
+      case 'onboarded': return '#27ae60';
       default: return '#ddd';
     }
   };
@@ -147,6 +148,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
                 <button onClick={() => handleStatusChange('waitlisted')}>Waitlisted</button>
                 <button onClick={() => handleStatusChange('call_scheduled')}>Call Scheduled</button>
                 <button onClick={() => handleStatusChange('pending_call')}>Pending Call</button>
+                <button onClick={() => handleStatusChange('onboarded')}>Onboarded</button>
                 <button onClick={() => handleStatusChange('not_interested')}>Not Interested</button>
               </div>
             )}
