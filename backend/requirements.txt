@@ -9,3 +9,4 @@ icalendar==5.0.7
 python-socketio==5.9.0
 eventlet==0.33.3
 gunicorn==21.2.0
+pymongo[srv]==3.4
