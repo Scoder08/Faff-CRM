@@ -201,11 +201,16 @@ def get_messages(phone):
 
 @app.route('/api/send-message', methods=['POST'])
 def send_message():
-    """Send message to WhatsApp - optimized for speed"""
+    """Send message to WhatsApp - optimized for speed with user tracking"""
     data = request.json
     phone = data['phone']
     message = data['message']
     temp_id = data.get('tempId')  # Get temporary ID from frontend
+    
+    # Get user information from request
+    user_id = data.get('userId', 'unknown')
+    user_name = data.get('userName', 'Unknown User')
+    user_email = data.get('userEmail', '')
     
     # Send via WhatsApp API (now using connection pooling)
     response = send_whatsapp_message(phone, message)
@@ -214,7 +219,7 @@ def send_message():
         # Get WhatsApp message ID for tracking status
         whatsapp_message_id = response['messages'][0].get('id')
         
-        # Prepare message document
+        # Prepare message document with user tracking
         timestamp = datetime.now()
         message_doc = {
             'phone': phone,
@@ -224,7 +229,23 @@ def send_message():
             'messageType': 'text',
             'isRead': True,
             'status': 'sent',
-            'whatsappMessageId': whatsapp_message_id
+            'whatsappMessageId': whatsapp_message_id,
+            'sentBy': user_id,
+            'sentByName': user_name,
+            'sentByEmail': user_email
+        }
+        
+        # Log the activity
+        activity_log = {
+            'action': 'message_sent',
+            'userId': user_id,
+            'userName': user_name,
+            'userEmail': user_email,
+            'phone': phone,
+            'message': message,
+            'timestamp': timestamp,
+            'whatsappMessageId': whatsapp_message_id,
+            'status': 'success'
         }
         
         # Use eventlet to spawn async database operations
@@ -232,13 +253,17 @@ def send_message():
             # Save message to database
             result = db.messages.insert_one(message_doc)
             
+            # Save activity log
+            db.activity_logs.insert_one(activity_log)
+            
             # Update chat's last message
             db.chats.update_one(
                 {'phone': phone},
                 {
                     '$set': {
                         'lastMessage': message,
-                        'lastMessageTime': timestamp
+                        'lastMessageTime': timestamp,
+                        'lastMessageBy': user_name
                     }
                 }
             )
@@ -578,6 +603,48 @@ def update_status():
     )
     
     return jsonify({'success': True})
+
+@app.route('/api/activity-logs', methods=['GET'])
+def get_activity_logs():
+    """Get activity logs with optional filtering"""
+    if db is None:
+        return jsonify({'error': 'Database not connected'}), 503
+    
+    # Get query parameters
+    user_id = request.args.get('userId')
+    phone = request.args.get('phone')
+    action = request.args.get('action')
+    limit = int(request.args.get('limit', 100))
+    
+    # Build query
+    query = {}
+    if user_id:
+        query['userId'] = user_id
+    if phone:
+        query['phone'] = phone
+    if action:
+        query['action'] = action
+    
+    # Get logs
+    logs = list(db.activity_logs.find(query).sort('timestamp', -1).limit(limit))
+    
+    # Format response
+    result = []
+    for log in logs:
+        result.append({
+            'id': str(log['_id']),
+            'action': log['action'],
+            'userId': log.get('userId'),
+            'userName': log.get('userName'),
+            'userEmail': log.get('userEmail'),
+            'phone': log.get('phone'),
+            'message': log.get('message'),
+            'timestamp': log['timestamp'].isoformat() if isinstance(log['timestamp'], datetime) else log['timestamp'],
+            'status': log.get('status', 'success'),
+            'details': log.get('details', {})
+        })
+    
+    return jsonify(result)
 
 @socketio.on('connect')
 def handle_connect():
