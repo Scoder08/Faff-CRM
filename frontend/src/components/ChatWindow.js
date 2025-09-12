@@ -93,7 +93,11 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
     }
   };
 
-  const getMessageStatusIcon = (status) => {
+  const getMessageStatusIcon = (status, is_read) => {
+    if(status === 'delivered' && is_read){
+      status = 'read'
+    }
+
     switch (status) {
       case 'sent':
         return <BsCheck className="status-icon" />;
@@ -209,7 +213,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
                 </span>
                 {(message.direction === 'outbound' || message.sender === 'user') && (
                   <span className="message-status">
-                    {getMessageStatusIcon(message.status)}
+                    {getMessageStatusIcon(message.status, message.is_read)}
                   </span>
                 )}
               </div>
