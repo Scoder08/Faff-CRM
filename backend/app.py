@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 from bson import ObjectId
 from datetime import datetime
 import os
@@ -32,50 +33,62 @@ is_railway = os.getenv('RAILWAY_ENVIRONMENT') is not None
 # if is_railway:
 # print("Running on Railway - enabling permissive CORS")
 CORS(app, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*")
 # else:
 #     CORS(app, origins=[frontend_url, 'http://localhost:3000'])
 #     socketio = SocketIO(app, cors_allowed_origins=[frontend_url, 'http://localhost:3000'])
 
-# MongoDB connection with detailed logging
-# Railway uses MONGO_PUBLIC_URL or MONGODB_URI
-mongodb_uri = os.getenv('MONGO_PUBLIC_URL') or os.getenv('MONGODB_URI')
-print("=" * 50)
-print("MONGODB CONNECTION DEBUG")
-print(f"Railway Environment: {os.getenv('RAILWAY_ENVIRONMENT', 'Not set')}")
-print(f"MongoDB URI present: {'Yes' if mongodb_uri else 'No'}")
-if mongodb_uri:
-    # Hide password in logs
-    if '@' in mongodb_uri:
-        parts = mongodb_uri.split('@')
-        if '://' in parts[0]:
-            protocol_user = parts[0].split('://')
-            if ':' in protocol_user[1]:
-                user = protocol_user[1].split(':')[0]
-                print(f"MongoDB User: {user}")
-                print(f"MongoDB Host: {parts[1].split('?')[0] if '?' in parts[1] else parts[1]}")
-print("=" * 50)
+# MongoDB connection
+mongodb_uri = os.getenv('MONGODB_URI') or os.getenv('MONGO_PUBLIC_URL')
 
 if not mongodb_uri:
     print("WARNING: MONGODB_URI not set. Using localhost for development.")
-    mongodb_uri = 'mongodb://localhost:27017/'
+    mongodb_uri = 'mongodb://localhost:27017/whatsapp_crm'
+
+print("=" * 50)
+print("MongoDB Connection Status")
+print(f"Environment: {os.getenv('RAILWAY_ENVIRONMENT', 'Development')}")
+print(f"MongoDB configured: {'Yes' if mongodb_uri else 'No'}")
+print("=" * 50)
 
 try:
-    print("Attempting MongoDB connection...")
-    client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
-    # Test the connection
-    client.server_info()
+    # For pymongo 3.4, we need to handle replica sets differently
+    # Remove replicaSet parameter if it exists in the URI
+    if 'replicaSet=' in mongodb_uri:
+        # Remove the replicaSet parameter for simpler connection
+        import re
+        mongodb_uri = re.sub(r'[?&]replicaSet=[^&]*', '', mongodb_uri)
+        print("Adjusted URI for pymongo 3.4 (removed replicaSet)")
+    
+    # Simple connection for pymongo 3.4
+    # client = MongoClient(
+    #     mongodb_uri,
+    #     connectTimeoutMS=30000,
+    #     serverSelectionTimeoutMS=30000,
+    #     connect=False  # Don't connect immediately
+    # )
+    client = MongoClient(
+        mongodb_uri,
+        server_api=ServerApi('1'),        # works with Atlas
+        serverSelectionTimeoutMS=30000,   # 30s to discover primary
+        connectTimeoutMS=20000,
+        socketTimeoutMS=20000
+    )
+    print("Connected i guess")
+    # Force connection and test
+    client.admin.command('ismaster')
     db = client.whatsapp_crm
     print("✅ Successfully connected to MongoDB!")
+    
 except Exception as e:
     print(f"❌ Failed to connect to MongoDB: {e}")
-    print("\nPlease set MONGODB_URI environment variable in Railway:")
-    print("1. Go to Railway dashboard")
-    print("2. Select your service")
-    print("3. Go to Variables tab")
-    print("4. Add MONGODB_URI with your connection string")
-    print("Example: mongodb+srv://username:password@cluster.mongodb.net/whatsapp_crm?retryWrites=true&w=majority")
-    # Create a dummy db object to prevent import errors
+    print("\n⚠️  Please set MONGODB_URI in Railway Variables")
+    print("Use standard MongoDB connection string (NOT SRV):")
+    print("Format: mongodb://username:password@host1:port1,host2:port2,host3:port3/whatsapp_crm?ssl=true&authSource=admin")
+    print("\nTo get this from Atlas:")
+    print("1. Atlas Dashboard → Connect → Connect your application")
+    print("2. Select 'Python 2.7' or 'MongoDB 2.2.12 or later'")
+    print("3. Copy the connection string")
     db = None
 
 # WhatsApp webhook verify token
