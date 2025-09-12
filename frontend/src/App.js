@@ -166,34 +166,37 @@ function App() {
         };
         
         setMessages(prevMessages => {
-          // Check if message already exists (by ID, WhatsApp ID, or if it's an optimistic update)
-          const exists = prevMessages.some(msg => {
-            // Check by message ID
-            if (msg.id === newMessage.id) return true;
-            
-            // Check by WhatsApp message ID
-            if (newMessage.whatsappMessageId && msg.whatsappMessageId === newMessage.whatsappMessageId) return true;
-            
-            // Check if this is replacing an optimistic message (same message, direction, and close timestamp)
-            if (messageData.direction === 'outbound' && msg.status === 'pending' && 
-                msg.message === messageData.message && msg.phone === messageData.phone) {
-              // Replace the optimistic message with the real one
-              const index = prevMessages.findIndex(m => m === msg);
-              if (index !== -1) {
-                const updated = [...prevMessages];
-                updated[index] = newMessage;
-                return updated.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-              }
-            }
-            
-            return false;
-          });
+          // First check if this message already exists by its IDs
+          const existingIndex = prevMessages.findIndex(msg => 
+            (msg.id && msg.id === newMessage.id) || 
+            (msg.whatsappMessageId && newMessage.whatsappMessageId && 
+             msg.whatsappMessageId === newMessage.whatsappMessageId)
+          );
           
-          if (exists) {
+          if (existingIndex !== -1) {
             console.log('Message already exists, skipping duplicate:', newMessage.id);
             return prevMessages;
           }
           
+          // Check if this is replacing an optimistic message
+          if (messageData.direction === 'outbound') {
+            const optimisticIndex = prevMessages.findIndex(msg => 
+              msg.status === 'pending' && 
+              msg.message === messageData.message && 
+              msg.phone === messageData.phone &&
+              msg.tempId // Has a tempId, meaning it's optimistic
+            );
+            
+            if (optimisticIndex !== -1) {
+              console.log('Replacing optimistic message with real message');
+              const updated = [...prevMessages];
+              // Replace optimistic message with the real one
+              updated[optimisticIndex] = newMessage;
+              return updated.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            }
+          }
+          
+          // If no duplicate and not replacing optimistic, add as new message
           const updatedMessages = [...prevMessages, newMessage];
           // Sort by timestamp to maintain chronological order
           return updatedMessages.sort((a, b) => 
@@ -380,13 +383,19 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         
-        // Update the message with the real ID and sent status
+        // Update the optimistic message with the real ID and sent status
         setMessages(prevMessages => 
           prevMessages.map(msg => 
             msg.tempId === tempId 
-              ? { ...msg, id: data.messageId || msg.id, status: 'sent', tempId: undefined }
+              ? { 
+                  ...msg, 
+                  id: data.messageId || msg.id, 
+                  status: 'sent', 
+                  whatsappMessageId: data.whatsappMessageId,
+                  tempId: undefined  // Clear tempId after successful send
+                }
               : msg
-          ).filter(msg => msg.tempId !== tempId) // Remove the optimistic message
+          )
         );
         
         // Update last message locally instead of fetching (faster)
@@ -398,16 +407,24 @@ function App() {
           )
         );
       } else {
-        // Remove the optimistic message on failure
+        // Mark the optimistic message as failed
         setMessages(prevMessages => 
-          prevMessages.filter(msg => msg.tempId !== tempId)
+          prevMessages.map(msg => 
+            msg.tempId === tempId 
+              ? { ...msg, status: 'failed' }
+              : msg
+          )
         );
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      // Remove the optimistic message on error
+      // Mark the optimistic message as failed on error
       setMessages(prevMessages => 
-        prevMessages.filter(msg => msg.tempId !== tempId)
+        prevMessages.map(msg => 
+          msg.tempId === tempId 
+            ? { ...msg, status: 'failed' }
+            : msg
+        )
       );
     }
   };
