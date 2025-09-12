@@ -52,33 +52,32 @@ print(f"MongoDB configured: {'Yes' if mongodb_uri else 'No'}")
 print("=" * 50)
 
 try:
-    # For pymongo 3.4, we need to handle replica sets differently
-    # Remove replicaSet parameter if it exists in the URI
-    if 'replicaSet=' in mongodb_uri:
-        # Remove the replicaSet parameter for simpler connection
-        import re
-        mongodb_uri = re.sub(r'[?&]replicaSet=[^&]*', '', mongodb_uri)
-        print("Adjusted URI for pymongo 3.4 (removed replicaSet)")
-    
-    # Simple connection for pymongo 3.4
-    # client = MongoClient(
-    #     mongodb_uri,
-    #     connectTimeoutMS=30000,
-    #     serverSelectionTimeoutMS=30000,
-    #     connect=False  # Don't connect immediately
-    # )
+    # For pymongo 4.7.2 with standard MongoDB URI (non-SRV)
+    # Ensure SSL/TLS is properly configured
+    if 'ssl=true' not in mongodb_uri and 'tls=true' not in mongodb_uri:
+        # Add SSL if connecting to Atlas
+        if 'mongodb.net' in mongodb_uri:
+            separator = '&' if '?' in mongodb_uri else '?'
+            mongodb_uri = f"{mongodb_uri}{separator}ssl=true"
+            print("Added SSL=true for secure connection")
+    print(mongodb_uri)
+    # Connection with ServerApi for stable API version
     client = MongoClient(
         mongodb_uri,
-        server_api=ServerApi('1'),        # works with Atlas
-        serverSelectionTimeoutMS=30000,   # 30s to discover primary
+        server_api=ServerApi('1'),  # Stable API version
+        serverSelectionTimeoutMS=30000,
         connectTimeoutMS=20000,
-        socketTimeoutMS=20000
+        socketTimeoutMS=20000,
+        maxPoolSize=50,
+        minPoolSize=10,
+        retryWrites=True,
+        retryReads=True
     )
-    print("Connected i guess")
-    # Force connection and test
-    client.admin.command('ismaster')
+    print('connected i guess')
+    # Test the connection
+    client.admin.command('ping')
     db = client.whatsapp_crm
-    print("✅ Successfully connected to MongoDB!")
+    print("✅ Successfully connected to MongoDB with pymongo 4.7.2!")
     
 except Exception as e:
     print(f"❌ Failed to connect to MongoDB: {e}")
