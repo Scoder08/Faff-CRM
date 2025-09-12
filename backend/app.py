@@ -201,58 +201,65 @@ def get_messages(phone):
 
 @app.route('/api/send-message', methods=['POST'])
 def send_message():
-    """Send message to WhatsApp"""
+    """Send message to WhatsApp - optimized for speed"""
     data = request.json
     phone = data['phone']
     message = data['message']
     temp_id = data.get('tempId')  # Get temporary ID from frontend
     
-    # Send via WhatsApp API
+    # Send via WhatsApp API (now using connection pooling)
     response = send_whatsapp_message(phone, message)
     
     if 'messages' in response:
         # Get WhatsApp message ID for tracking status
         whatsapp_message_id = response['messages'][0].get('id')
         
-        # Save to database with status
+        # Prepare message document
+        timestamp = datetime.now()
         message_doc = {
             'phone': phone,
             'message': message,
             'direction': 'outbound',
-            'timestamp': datetime.now(),
+            'timestamp': timestamp,
             'messageType': 'text',
             'isRead': True,
             'status': 'sent',
             'whatsappMessageId': whatsapp_message_id
         }
-        result = db.messages.insert_one(message_doc)
-        message_id = str(result.inserted_id)
         
-        # Emit to frontend
-        socketio.emit('new_message', {
-            'phone': phone,
-            'message': message,
-            'direction': 'outbound',
-            'timestamp': datetime.now().isoformat(),
-            'whatsappMessageId': whatsapp_message_id,
-            'messageId': message_id,
-            'tempId': temp_id  # Send back temp ID for matching
-        })
-        
-        # Update chat's last message
-        db.chats.update_one(
-            {'phone': phone},
-            {
-                '$set': {
-                    'lastMessage': message,
-                    'lastMessageTime': datetime.now()
+        # Use eventlet to spawn async database operations
+        def async_db_operations():
+            # Save message to database
+            result = db.messages.insert_one(message_doc)
+            
+            # Update chat's last message
+            db.chats.update_one(
+                {'phone': phone},
+                {
+                    '$set': {
+                        'lastMessage': message,
+                        'lastMessageTime': timestamp
+                    }
                 }
-            }
-        )
+            )
+            
+            # Emit to frontend after DB save
+            socketio.emit('new_message', {
+                'phone': phone,
+                'message': message,
+                'direction': 'outbound',
+                'timestamp': timestamp.isoformat(),
+                'whatsappMessageId': whatsapp_message_id,
+                'messageId': str(result.inserted_id),
+                'tempId': temp_id
+            })
         
+        # Spawn async task for DB operations
+        eventlet.spawn_n(async_db_operations)
+        
+        # Return immediately to reduce latency
         return jsonify({
             'success': True,
-            'messageId': message_id,
             'whatsappMessageId': whatsapp_message_id,
             'tempId': temp_id
         })

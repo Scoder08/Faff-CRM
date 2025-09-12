@@ -150,8 +150,14 @@ function App() {
           )
         );
         
-        // Fetch updated chats to refresh last message
-        fetchChats();
+        // Update last message locally instead of fetching (faster)
+        setChats(prevChats => 
+          prevChats.map(chat => 
+            chat.phone === phone 
+              ? { ...chat, lastMessage: message, lastMessageTime: new Date().toISOString() }
+              : chat
+          )
+        );
       } else {
         // Mark message as failed
         setMessages(prevMessages => 

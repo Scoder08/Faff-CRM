@@ -2,19 +2,43 @@ import os
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 load_dotenv()
 
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN')
 WHATSAPP_PHONE_ID = os.getenv('WHATSAPP_PHONE_ID')
 
+# Create a session with connection pooling and keep-alive
+session = requests.Session()
+
+# Configure retry strategy
+retry_strategy = Retry(
+    total=2,
+    backoff_factor=0.3,
+    status_forcelist=[429, 500, 502, 503, 504],
+)
+
+# Mount adapter with connection pooling
+adapter = HTTPAdapter(
+    pool_connections=10,
+    pool_maxsize=20,
+    max_retries=retry_strategy
+)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
+
+# Set default headers
+session.headers.update({
+    'Authorization': f'Bearer {WHATSAPP_TOKEN}',
+    'Content-Type': 'application/json',
+    'Connection': 'keep-alive'
+})
+
 def send_whatsapp_message(phone, message, buttons=None):
-    """Send message via WhatsApp API"""
+    """Send message via WhatsApp API with optimized connection"""
     url = f"https://graph.facebook.com/v17.0/{WHATSAPP_PHONE_ID}/messages"
-    headers = {
-        'Authorization': f'Bearer {WHATSAPP_TOKEN}',
-        'Content-Type': 'application/json'
-    }
     
     if buttons:
         payload = {
@@ -35,8 +59,14 @@ def send_whatsapp_message(phone, message, buttons=None):
             "text": {"body": message}
         }
     
-    response = requests.post(url, headers=headers, json=payload)
-    return response.json()
+    # Use session with connection pooling (much faster)
+    try:
+        response = session.post(url, json=payload, timeout=5)
+        return response.json()
+    except requests.exceptions.Timeout:
+        return {"error": "Request timeout"}
+    except Exception as e:
+        return {"error": str(e)}
 
 def get_auto_reply(message_text, is_new_user=True):
     """Generate auto-reply based on message content"""
