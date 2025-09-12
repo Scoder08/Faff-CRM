@@ -1,0 +1,60 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# when running `gcloud builds submit` or when Cloud Build runs
+
+# Ignore frontend directory entirely
+frontend/
+
+# Ignore all markdown files
+*.md
+README.md
+LICENSE
+
+# Ignore git files
+.git/
+.gitignore
+.github/
+
+# Ignore setup scripts
+setup-*.sh
+update-*.sh
+
+# Ignore local environment files
+.env
+.env.local
+.env.*.local
+
+# Ignore node_modules if any in root
+node_modules/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore test files
+*_test.py
+*_test.go
+test/
+tests/
+
+# Ignore documentation
+docs/
+documentation/
+
+# Ignore deployment guides
+GCP_*.md
+DEPLOYMENT_*.md

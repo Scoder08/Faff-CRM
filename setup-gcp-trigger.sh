@@ -98,6 +98,19 @@ if [ ! -f "$BUILD_CONFIG" ]; then
     BUILD_CONFIG="backend/cloudbuild.yaml"
 fi
 
+# Ask about backend-only deployment
+echo ""
+echo -e "${YELLOW}Deployment Filtering${NC}"
+read -p "Only trigger deployment when backend files change? (y/n): " -n 1 -r
+echo
+INCLUDE_FILES=""
+IGNORE_FILES=""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    INCLUDE_FILES="--included-files=backend/**"
+    IGNORE_FILES="--ignored-files=frontend/**,*.md,LICENSE,.gitignore"
+    echo -e "${GREEN}Will only deploy on backend changes${NC}"
+fi
+
 gcloud builds triggers create github \
     --repo-name="${GITHUB_REPO}" \
     --repo-owner="${GITHUB_OWNER}" \
@@ -106,7 +119,9 @@ gcloud builds triggers create github \
     --name="${TRIGGER_NAME}" \
     --description="${TRIGGER_DESCRIPTION}" \
     --region="${REGION}" \
-    --include-logs-with-status
+    --include-logs-with-status \
+    ${INCLUDE_FILES} \
+    ${IGNORE_FILES}
 
 if [ $? -eq 0 ]; then
     echo ""

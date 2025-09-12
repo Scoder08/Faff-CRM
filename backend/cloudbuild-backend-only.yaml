@@ -1,0 +1,132 @@
+# Cloud Build configuration that only runs when backend files change
+# This configuration includes a check to skip deployment if only frontend changed
+
+steps:
+  # Step 0: Check if backend files changed
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Check if this is a push to master (not a manual trigger)
+        if [ "$BRANCH_NAME" = "master" ]; then
+          echo "Checking for backend changes..."
+          
+          # Get the list of changed files
+          git diff --name-only HEAD~1 HEAD > changed_files.txt
+          
+          echo "Changed files:"
+          cat changed_files.txt
+          
+          # Check if any backend files changed
+          if grep -q "^backend/" changed_files.txt; then
+            echo "✅ Backend files changed. Proceeding with deployment."
+          else
+            echo "⏭️ No backend files changed. Skipping deployment."
+            echo "SKIP_BUILD=true" > /workspace/build_env.txt
+            exit 0
+          fi
+        else
+          echo "Manual trigger or non-master branch. Proceeding with build."
+        fi
+    id: 'check-changes'
+
+  # Step 1: Build the Docker image (only if backend changed)
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -f /workspace/build_env.txt ] && grep -q "SKIP_BUILD=true" /workspace/build_env.txt; then
+          echo "Skipping Docker build - no backend changes"
+          exit 0
+        fi
+        docker build -t gcr.io/$PROJECT_ID/whatsapp-crm-backend:$COMMIT_SHA \
+                     -t gcr.io/$PROJECT_ID/whatsapp-crm-backend:latest \
+                     ./backend
+    id: 'build-image'
+    waitFor: ['check-changes']
+  
+  # Step 2: Push the Docker image (only if built)
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -f /workspace/build_env.txt ] && grep -q "SKIP_BUILD=true" /workspace/build_env.txt; then
+          echo "Skipping Docker push - no backend changes"
+          exit 0
+        fi
+        docker push --all-tags gcr.io/$PROJECT_ID/whatsapp-crm-backend
+    id: 'push-image'
+    waitFor: ['build-image']
+  
+  # Step 3: Deploy to Cloud Run (only if image was pushed)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -f /workspace/build_env.txt ] && grep -q "SKIP_BUILD=true" /workspace/build_env.txt; then
+          echo "✅ No backend changes detected. Deployment skipped successfully."
+          echo "Frontend-only changes don't require backend deployment."
+          exit 0
+        fi
+        
+        gcloud run deploy whatsapp-crm-backend \
+          --image gcr.io/$PROJECT_ID/whatsapp-crm-backend:$COMMIT_SHA \
+          --region us-central1 \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 8080 \
+          --memory 2Gi \
+          --cpu 2 \
+          --min-instances 1 \
+          --max-instances 100 \
+          --concurrency 1000 \
+          --cpu-boost \
+          --set-secrets "MONGODB_URI=mongodb-uri:latest,WHATSAPP_TOKEN=whatsapp-token:latest,WHATSAPP_PHONE_ID=whatsapp-phone-id:latest,SECRET_KEY=app-secret-key:latest,FRONTEND_URL=frontend-url:latest" \
+          --set-env-vars "NODE_ENV=production,PORT=8080,DEPLOYMENT_ENV=production,GIT_COMMIT=$COMMIT_SHA,BUILD_ID=$BUILD_ID"
+    id: 'deploy'
+    waitFor: ['push-image']
+
+  # Step 4: Verify deployment (only if deployed)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -f /workspace/build_env.txt ] && grep -q "SKIP_BUILD=true" /workspace/build_env.txt; then
+          echo "📝 Build Summary: Frontend-only changes detected. Backend deployment skipped."
+          exit 0
+        fi
+        
+        echo "⏳ Waiting for service to be ready..."
+        sleep 15
+        
+        SERVICE_URL=$(gcloud run services describe whatsapp-crm-backend \
+          --region=us-central1 \
+          --platform=managed \
+          --format='value(status.url)')
+        
+        echo "🌐 Service deployed at: $${SERVICE_URL}"
+        
+        if curl -f "$${SERVICE_URL}/api/health" --max-time 30; then
+          echo "✅ Health check passed!"
+          echo "🎉 Backend deployment successful!"
+        else
+          echo "⚠️ Health check failed, but service is deployed"
+        fi
+    id: 'verify'
+    waitFor: ['deploy']
+
+# Only store images if they were built
+images:
+  - 'gcr.io/$PROJECT_ID/whatsapp-crm-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/whatsapp-crm-backend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  
+timeout: '1200s'
