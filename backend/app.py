@@ -23,26 +23,58 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
 
-# Configure CORS
+# Configure CORS - More permissive for Railway
 frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-CORS(app, origins=[frontend_url, 'http://localhost:3000'])
-socketio = SocketIO(app, cors_allowed_origins=[frontend_url, 'http://localhost:3000'])
 
-# MongoDB connection
-mongodb_uri = os.getenv('MONGODB_URI')
+# Check if running on Railway
+is_railway = os.getenv('RAILWAY_ENVIRONMENT') is not None
+
+# if is_railway:
+# print("Running on Railway - enabling permissive CORS")
+CORS(app, resources={r"/*": {"origins": "*"}})
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# else:
+#     CORS(app, origins=[frontend_url, 'http://localhost:3000'])
+#     socketio = SocketIO(app, cors_allowed_origins=[frontend_url, 'http://localhost:3000'])
+
+# MongoDB connection with detailed logging
+# Railway uses MONGO_PUBLIC_URL or MONGODB_URI
+mongodb_uri = os.getenv('MONGO_PUBLIC_URL') or os.getenv('MONGODB_URI')
+print("=" * 50)
+print("MONGODB CONNECTION DEBUG")
+print(f"Railway Environment: {os.getenv('RAILWAY_ENVIRONMENT', 'Not set')}")
+print(f"MongoDB URI present: {'Yes' if mongodb_uri else 'No'}")
+if mongodb_uri:
+    # Hide password in logs
+    if '@' in mongodb_uri:
+        parts = mongodb_uri.split('@')
+        if '://' in parts[0]:
+            protocol_user = parts[0].split('://')
+            if ':' in protocol_user[1]:
+                user = protocol_user[1].split(':')[0]
+                print(f"MongoDB User: {user}")
+                print(f"MongoDB Host: {parts[1].split('?')[0] if '?' in parts[1] else parts[1]}")
+print("=" * 50)
+
 if not mongodb_uri:
     print("WARNING: MONGODB_URI not set. Using localhost for development.")
     mongodb_uri = 'mongodb://localhost:27017/'
 
 try:
+    print("Attempting MongoDB connection...")
     client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
     # Test the connection
     client.server_info()
     db = client.whatsapp_crm
-    print(f"Successfully connected to MongoDB")
+    print("✅ Successfully connected to MongoDB!")
 except Exception as e:
-    print(f"ERROR: Failed to connect to MongoDB: {e}")
-    print("Please set MONGODB_URI environment variable with a valid MongoDB connection string.")
+    print(f"❌ Failed to connect to MongoDB: {e}")
+    print("\nPlease set MONGODB_URI environment variable in Railway:")
+    print("1. Go to Railway dashboard")
+    print("2. Select your service")
+    print("3. Go to Variables tab")
+    print("4. Add MONGODB_URI with your connection string")
+    print("Example: mongodb+srv://username:password@cluster.mongodb.net/whatsapp_crm?retryWrites=true&w=majority")
     # Create a dummy db object to prevent import errors
     db = None
 
