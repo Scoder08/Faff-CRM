@@ -386,7 +386,7 @@ function App() {
             msg.tempId === tempId 
               ? { ...msg, id: data.messageId || msg.id, status: 'sent', tempId: undefined }
               : msg
-          )
+          ).filter(msg => msg.tempId !== tempId) // Remove the optimistic message
         );
         
         // Update last message locally instead of fetching (faster)
@@ -398,24 +398,16 @@ function App() {
           )
         );
       } else {
-        // Mark message as failed
+        // Remove the optimistic message on failure
         setMessages(prevMessages => 
-          prevMessages.map(msg => 
-            msg.tempId === tempId 
-              ? { ...msg, status: 'failed' }
-              : msg
-          )
+          prevMessages.filter(msg => msg.tempId !== tempId)
         );
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      // Mark message as failed
+      // Remove the optimistic message on error
       setMessages(prevMessages => 
-        prevMessages.map(msg => 
-          msg.tempId === tempId 
-            ? { ...msg, status: 'failed' }
-            : msg
-        )
+        prevMessages.filter(msg => msg.tempId !== tempId)
       );
     }
   };

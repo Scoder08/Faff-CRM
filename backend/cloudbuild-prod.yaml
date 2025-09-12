@@ -1,0 +1,90 @@
+# Cloud Build configuration for production deployment
+# This file is used when code is pushed to master branch
+
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/whatsapp-crm-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/whatsapp-crm-backend:latest'
+      - './backend'
+    id: 'build-image'
+  
+  # Step 2: Push the Docker image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/whatsapp-crm-backend']
+    id: 'push-image'
+    waitFor: ['build-image']
+  
+  # Step 3: Deploy to Cloud Run with environment variables from Secret Manager
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'whatsapp-crm-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/whatsapp-crm-backend:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--min-instances'
+      - '1'
+      - '--max-instances'
+      - '100'
+      - '--concurrency'
+      - '1000'
+      - '--cpu-boost'
+      - '--set-env-vars'
+      - 'DEPLOYMENT_ENV=production,GIT_COMMIT=$COMMIT_SHA,BUILD_ID=$BUILD_ID,TRIGGER_NAME=$TRIGGER_NAME'
+    id: 'deploy'
+    waitFor: ['push-image']
+
+  # Step 4: Run smoke tests (optional)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Get the service URL
+        SERVICE_URL=$(gcloud run services describe whatsapp-crm-backend \
+          --region=us-central1 \
+          --platform=managed \
+          --format='value(status.url)')
+        
+        echo "Service deployed at: $${SERVICE_URL}"
+        
+        # Simple health check
+        curl -f "$${SERVICE_URL}/api/health" || exit 1
+        echo "Health check passed!"
+    id: 'smoke-test'
+    waitFor: ['deploy']
+
+# Store images in Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/whatsapp-crm-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/whatsapp-crm-backend:latest'
+
+# Build configuration options
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'  # Use a faster machine for quicker builds
+  
+# Build timeout (20 minutes)
+timeout: '1200s'
+
+# Substitutions that can be overridden
+substitutions:
+  _DEPLOY_REGION: 'us-central1'
+  _SERVICE_NAME: 'whatsapp-crm-backend'
