@@ -192,7 +192,7 @@ def get_messages(phone):
             'id': str(msg['_id']),
             'message': msg['message'],
             'direction': msg['direction'],
-            'timestamp': msg['timestamp'].isoformat(),
+            'timestamp': msg['timestamp'].astimezone(pytz.timezone('Asia/Kolkata')).isoformat(),
             'messageType': msg.get('messageType', 'text'),
             'status': msg.get('status', 'sent'),  # Include message status
             'whatsappMessageId': msg.get('whatsappMessageId')  # Include WhatsApp message ID for status tracking
@@ -235,6 +235,7 @@ def send_message():
             'sentByName': user_name,
             'sentByEmail': user_email
         }
+        print(message_doc)
         
         # Log the activity
         activity_log = {

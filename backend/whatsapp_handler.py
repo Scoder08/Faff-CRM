@@ -180,7 +180,6 @@ def process_incoming_message(db, socketio, parsed_data):
     message_type = parsed_data['message_type']
     button_id = parsed_data['button_id']
     contact_name = parsed_data['contact_name']
-    timestamp = datetime.fromtimestamp(int(timestamp), tz=pytz.timezone('Asia/Kolkata'))
     
     print(f"Processing message from {phone}: '{message_text}'")
     print(f"Message ID: {message_id}, Type: {message_type}")
