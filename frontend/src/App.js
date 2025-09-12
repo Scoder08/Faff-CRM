@@ -5,6 +5,7 @@ import ChatList from './components/ChatList';
 import ChatWindow from './components/ChatWindow';
 import Dashboard from './components/Dashboard';
 import NotificationSettings from './components/NotificationSettings';
+import ReferralTracking from './components/ReferralTracking';
 import { IoNotifications } from 'react-icons/io5';
 import config from './config';
 import notificationManager from './utils/notification';
@@ -18,6 +19,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showReferralTracking, setShowReferralTracking] = useState(false);
   const selectedChatRef = useRef(selectedChat);
   const [socket, setSocket] = useState(null);
 
@@ -579,11 +581,11 @@ function App() {
       <div className="app-sidebar">
         <div className="app-header">
           <h1>WhatsApp CRM</h1>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <UserButton 
               appearance={{
                 elements: {
-                  avatarBox: 'w-8 h-8'
+                  avatarBox: 'width: 32px; height: 32px;'
                 }
               }}
             />
@@ -593,6 +595,29 @@ function App() {
               title="Notification Settings"
             >
               <IoNotifications />
+            </button>
+            <button 
+              className="referral-btn"
+              onClick={() => setShowReferralTracking(true)}
+              title="Referral Tracking"
+              style={{
+                background: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '500',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.background = '#5a67d8'}
+              onMouseLeave={(e) => e.target.style.background = '#667eea'}
+            >
+              Users
             </button>
           </div>
         </div>
@@ -624,6 +649,43 @@ function App() {
         isOpen={showNotificationSettings}
         onClose={() => setShowNotificationSettings(false)}
       />
+      
+      {showReferralTracking && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'white',
+          zIndex: 1000,
+          overflow: 'auto'
+        }}>
+          <button
+            onClick={() => setShowReferralTracking(false)}
+            style={{
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              background: '#e74c3c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              fontSize: '20px',
+              cursor: 'pointer',
+              zIndex: 1001,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            ×
+          </button>
+          <ReferralTracking />
+        </div>
+      )}
     </div>
   );
 }

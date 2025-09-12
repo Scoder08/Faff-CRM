@@ -611,6 +611,169 @@ def update_status():
     
     return jsonify({'success': True})
 
+@app.route('/api/update-subscription', methods=['POST'])
+def update_subscription():
+    """Update user subscription status"""
+    data = request.json
+    phone = data['phone']
+    subscription_status = data['subscriptionStatus']  # 'active', 'inactive', 'trial', 'expired'
+    
+    update_data = {
+        'subscriptionStatus': subscription_status,
+        'subscriptionUpdatedAt': datetime.now(pytz.timezone('Asia/Kolkata'))
+    }
+    
+    # Add subscription start date if activating
+    if subscription_status == 'active' and data.get('isNewSubscription'):
+        update_data['subscriptionStartDate'] = datetime.now(pytz.timezone('Asia/Kolkata'))
+    
+    db.users.update_one(
+        {'phone': phone},
+        {'$set': update_data}
+    )
+    
+    # Log the activity
+    db.activity_logs.insert_one({
+        'action': 'subscription_updated',
+        'phone': phone,
+        'subscriptionStatus': subscription_status,
+        'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')),
+        'updatedBy': data.get('updatedBy', 'system')
+    })
+    
+    return jsonify({'success': True})
+
+@app.route('/api/referrals', methods=['GET'])
+def get_referrals():
+    """Get referral tracking data with search functionality"""
+    if db is None:
+        return jsonify({'error': 'Database not connected'}), 503
+    
+    try:
+        # Get query parameters
+        search = request.args.get('search', '').strip()
+        referrer_filter = request.args.get('referrer', '').strip()
+        subscription_filter = request.args.get('subscription', '')  # 'all', 'subscribed', 'not_subscribed'
+        
+        # Build aggregation pipeline
+        pipeline = []
+        
+        # Match stage for search
+        if search:
+            pipeline.append({
+                '$match': {
+                    '$or': [
+                        {'name': {'$regex': search, '$options': 'i'}},
+                        {'phone': {'$regex': search, '$options': 'i'}},
+                        {'referredBy': {'$regex': search, '$options': 'i'}}
+                    ]
+                }
+            })
+        
+        # Filter by specific referrer
+        if referrer_filter:
+            pipeline.append({
+                '$match': {'referredBy': referrer_filter}
+            })
+        
+        # Add subscription status (you'll need to update this based on your subscription model)
+        pipeline.append({
+            '$addFields': {
+                'hasSubscription': {
+                    '$cond': {
+                        'if': {'$and': [
+                            {'$ne': ['$subscriptionStatus', None]},
+                            {'$eq': ['$subscriptionStatus', 'active']}
+                        ]},
+                        'then': True,
+                        'else': False
+                    }
+                }
+            }
+        })
+        
+        # Filter by subscription status
+        if subscription_filter == 'subscribed':
+            pipeline.append({'$match': {'hasSubscription': True}})
+        elif subscription_filter == 'not_subscribed':
+            pipeline.append({'$match': {'hasSubscription': False}})
+        
+        # Group by referrer to get referral counts
+        referrer_stats_pipeline = [
+            {'$match': {'referredBy': {'$ne': None}}},
+            {'$group': {
+                '_id': '$referredBy',
+                'totalReferred': {'$sum': 1},
+                'subscribedCount': {
+                    '$sum': {'$cond': [{'$eq': ['$subscriptionStatus', 'active']}, 1, 0]}
+                }
+            }}
+        ]
+        
+        # Execute pipelines
+        users = list(db.users.aggregate(pipeline if pipeline else [{}]))
+        referrer_stats = list(db.users.aggregate(referrer_stats_pipeline))
+        
+        # Create referrer stats lookup
+        stats_lookup = {stat['_id']: stat for stat in referrer_stats}
+        
+        # Process users to include referral information
+        referral_data = []
+        for user in users:
+            user_data = {
+                '_id': str(user.get('_id')),
+                'name': user.get('name', 'Unknown'),
+                'phone': user.get('phone'),
+                'referredBy': user.get('referredBy'),
+                'createdAt': user.get('createdAt').isoformat() if user.get('createdAt') else None,
+                'lastMessageAt': user.get('lastMessageAt').isoformat() if user.get('lastMessageAt') else None,
+                'status': user.get('status', 'new'),
+                'subscriptionStatus': user.get('subscriptionStatus', 'none'),
+                'hasSubscription': user.get('hasSubscription', False),
+                'referralStats': stats_lookup.get(user.get('name')) or stats_lookup.get(user.get('phone')) or {
+                    'totalReferred': 0,
+                    'subscribedCount': 0
+                }
+            }
+            referral_data.append(user_data)
+        
+        # Get overall statistics
+        total_users = db.users.count_documents({})
+        referred_users = db.users.count_documents({'referredBy': {'$ne': None}})
+        subscribed_users = db.users.count_documents({'subscriptionStatus': 'active'})
+        
+        # Get top referrers
+        top_referrers = list(db.users.aggregate([
+            {'$match': {'referredBy': {'$ne': None}}},
+            {'$group': {
+                '_id': '$referredBy',
+                'count': {'$sum': 1},
+                'subscribedCount': {
+                    '$sum': {'$cond': [{'$eq': ['$subscriptionStatus', 'active']}, 1, 0]}
+                }
+            }},
+            {'$sort': {'count': -1}},
+            {'$limit': 10}
+        ]))
+        
+        return jsonify({
+            'success': True,
+            'referrals': referral_data,
+            'statistics': {
+                'totalUsers': total_users,
+                'referredUsers': referred_users,
+                'subscribedUsers': subscribed_users,
+                'conversionRate': round((subscribed_users / referred_users * 100) if referred_users > 0 else 0, 2),
+                'topReferrers': top_referrers
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error fetching referrals: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/activity-logs', methods=['GET'])
 def get_activity_logs():
     """Get activity logs with optional filtering"""

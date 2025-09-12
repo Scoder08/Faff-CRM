@@ -49,19 +49,21 @@ body {
 }
 
 .app-header {
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e0e0e0;
   background: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 64px;
 }
 
 .app-header h1 {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #1a1a1a;
   margin: 0;
+  white-space: nowrap;
 }
 
 .notification-btn {
@@ -69,13 +71,13 @@ body {
   border: none;
   color: #666;
   cursor: pointer;
-  padding: 8px;
+  padding: 6px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   transition: all 0.2s;
 }
 
@@ -85,7 +87,7 @@ body {
 }
 
 .notification-btn svg {
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .invite-btn {
@@ -194,7 +196,7 @@ body {
 .chat-list {
   flex: 1;
   overflow: hidden;
-  display: flex;
+  /* display: flex; */
   flex-direction: column;
 }
 
@@ -425,7 +427,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  /* background: white; */
   position: sticky;
   top: 0;
   z-index: 10;
