@@ -5,7 +5,6 @@ import ChatList from './components/ChatList';
 import ChatWindow from './components/ChatWindow';
 import Dashboard from './components/Dashboard';
 import NotificationSettings from './components/NotificationSettings';
-import ReferralTracking from './components/ReferralTracking';
 import { IoNotifications } from 'react-icons/io5';
 import config from './config';
 import notificationManager from './utils/notification';
@@ -21,13 +20,13 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  const [showReferralTracking, setShowReferralTracking] = useState(false);
   const selectedChatRef = useRef(selectedChat);
   const [socket, setSocket] = useState(null);
   const messagesCache = useRef({}); // Cache messages by phone number
   const cacheTimestamps = useRef({}); // Track when cache was last updated
   const [unreadCounts, setUnreadCounts] = useState({}); // Track unread messages per chat
   const [newMessageIndicators, setNewMessageIndicators] = useState({}); // Track which chats have new messages
+  const [statusFilter, setStatusFilter] = useState('all'); // Status filter state
 
   // Initialize socket only when user is authenticated
   useEffect(() => {
@@ -328,8 +327,12 @@ function App() {
     try {
       const response = await fetch(`${config.API_URL}/api/messages/${phone}`);
       const data = await response.json();
+      
+      // Handle new paginated response format
+      const messages = data.messages || data;
+      
       // Ensure messages are sorted by timestamp
-      const sortedMessages = data.sort((a, b) => 
+      const sortedMessages = messages.sort((a, b) => 
         new Date(a.timestamp) - new Date(b.timestamp)
       );
       
@@ -357,7 +360,11 @@ function App() {
     try {
       const response = await fetch(`${config.API_URL}/api/messages/${phone}`);
       const data = await response.json();
-      const sortedMessages = data.sort((a, b) => 
+      
+      // Handle new paginated response format
+      const messages = data.messages || data;
+      
+      const sortedMessages = messages.sort((a, b) => 
         new Date(a.timestamp) - new Date(b.timestamp)
       );
       
@@ -708,32 +715,13 @@ function App() {
             >
               <IoNotifications />
             </button>
-            <button 
-              className="referral-btn"
-              onClick={() => setShowReferralTracking(true)}
-              title="Referral Tracking"
-              style={{
-                background: '#667eea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '500',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                transition: 'background 0.2s'
-              }}
-              onMouseEnter={(e) => e.target.style.background = '#5a67d8'}
-              onMouseLeave={(e) => e.target.style.background = '#667eea'}
-            >
-              Users
-            </button>
           </div>
         </div>
-        <Dashboard chats={chats} />
+        <Dashboard 
+          chats={chats} 
+          statusFilter={statusFilter}
+          onFilterChange={setStatusFilter}
+        />
         <ChatList 
           chats={chats} 
           selectedChat={selectedChat}
@@ -741,6 +729,8 @@ function App() {
           onStatusUpdate={updateStatus}
           unreadCounts={unreadCounts}
           newMessageIndicators={newMessageIndicators}
+          statusFilter={statusFilter}
+          onFilterChange={setStatusFilter}
         />
       </div>
       <div className="app-main">
@@ -773,43 +763,6 @@ function App() {
         isOpen={showNotificationSettings}
         onClose={() => setShowNotificationSettings(false)}
       />
-      
-      {showReferralTracking && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'white',
-          zIndex: 1000,
-          overflow: 'auto'
-        }}>
-          <button
-            onClick={() => setShowReferralTracking(false)}
-            style={{
-              position: 'fixed',
-              top: '20px',
-              right: '20px',
-              background: '#e74c3c',
-              color: 'white',
-              border: 'none',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              fontSize: '20px',
-              cursor: 'pointer',
-              zIndex: 1001,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ×
-          </button>
-          <ReferralTracking />
-        </div>
-      )}
     </div>
   );
 }

@@ -16,6 +16,9 @@ from datetime import datetime, timezone, timedelta
 import pytz
 import os
 import sys
+import json
+import hashlib
+from functools import lru_cache
 from dotenv import load_dotenv
 
 # Add current directory to path for imports
@@ -104,6 +107,13 @@ except Exception as e:
     print("3. Copy the connection string")
     db = None
 
+# Simple in-memory cache
+cache = {
+    'chats': None,
+    'chats_timestamp': None,
+    'cache_duration': 30  # Cache for 30 seconds
+}
+
 # WhatsApp webhook verify token
 VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'your_verify_token')
 
@@ -141,9 +151,16 @@ def webhook():
 
 @app.route('/api/chats', methods=['GET'])
 def get_chats():
-    """Get all chat conversations"""
+    """Get all chat conversations with caching"""
     if db is None:
         return jsonify({'error': 'Database not connected. Please configure MONGODB_URI.'}), 503
+    
+    # Check cache
+    import time
+    current_time = time.time()
+    if cache['chats'] and cache['chats_timestamp']:
+        if current_time - cache['chats_timestamp'] < cache['cache_duration']:
+            return jsonify(cache['chats'])
     
     users = list(db.users.find().sort('lastMessageAt', -1))
     
@@ -173,12 +190,29 @@ def get_chats():
             'unreadCount': unread_count
         })
     
+    # Update cache
+    cache['chats'] = chats
+    cache['chats_timestamp'] = current_time
+    
     return jsonify(chats)
 
 @app.route('/api/messages/<phone>', methods=['GET'])
 def get_messages(phone):
-    """Get messages for a specific phone number"""
-    messages = list(db.messages.find({'phone': phone}).sort('timestamp', 1))
+    """Get messages for a specific phone number with pagination"""
+    # Get pagination parameters
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 100))  # Default 100 messages per page
+    skip = (page - 1) * limit
+    
+    # Get total count for pagination info
+    total_count = db.messages.count_documents({'phone': phone})
+    
+    # Get messages with pagination - sort descending first then reverse for chronological order
+    messages = list(db.messages.find({'phone': phone})
+                   .sort('timestamp', -1)
+                   .skip(skip)
+                   .limit(limit))
+    messages.reverse()  # Reverse to show oldest first in the batch
     
     # Mark messages as read
     db.messages.update_many(
@@ -198,7 +232,15 @@ def get_messages(phone):
             'whatsappMessageId': msg.get('whatsappMessageId')  # Include WhatsApp message ID for status tracking
         })
     
-    return jsonify(result)
+    return jsonify({
+        'messages': result,
+        'pagination': {
+            'page': page,
+            'limit': limit,
+            'total': total_count,
+            'totalPages': (total_count + limit - 1) // limit
+        }
+    })
 
 @app.route('/api/send-message', methods=['POST'])
 def send_message():
@@ -236,6 +278,10 @@ def send_message():
             'sentByEmail': user_email
         }
         print(message_doc)
+        
+        # Invalidate cache since we have a new message
+        cache['chats'] = None
+        cache['chats_timestamp'] = None
         
         # Log the activity
         activity_log = {
@@ -609,6 +655,10 @@ def update_status():
         {'phone': phone},
         {'$set': {'status': status}}
     )
+    
+    # Invalidate cache since status changed
+    cache['chats'] = None
+    cache['chats_timestamp'] = None
     
     return jsonify({'success': True})
 

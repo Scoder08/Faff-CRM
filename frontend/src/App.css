@@ -142,7 +142,9 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  transition: transform 0.2s;
+  transition: all 0.2s;
+  cursor: pointer;
+  user-select: none;
 }
 
 .stat-card:hover {
@@ -151,12 +153,27 @@ body {
 
 .stat-card.priority {
   background: #fff0e6;
-  border: 1px solid #ffd4b3;
+  border: 2px solid #ffd4b3;
 }
 
 .stat-card.regular {
   background: #fffae6;
-  border: 1px solid #ffefb3;
+  border: 2px solid #ffefb3;
+}
+
+.stat-card.active {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card.priority.active {
+  background: #ffe0cc;
+  border-color: #ff9a5c;
+}
+
+.stat-card.regular.active {
+  background: #fff5cc;
+  border-color: #ffd65c;
 }
 
 .stat-icon {

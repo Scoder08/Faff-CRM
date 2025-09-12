@@ -1,14 +1,27 @@
 import React, { useState } from 'react';
-import { BiSearch, BiFilterAlt } from 'react-icons/bi';
+import { BiSearch } from 'react-icons/bi';
 import { formatMessageTimeIST } from '../utils/dateUtils';
 
-const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCounts = {}, newMessageIndicators = {} }) => {
+const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCounts = {}, newMessageIndicators = {}, statusFilter = 'all', onFilterChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredChats = chats.filter(chat =>
-    chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    chat.phone.includes(searchTerm)
-  );
+  const filteredChats = chats.filter(chat => {
+    // Search filter
+    const matchesSearch = 
+      chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      chat.phone.includes(searchTerm) ||
+      (chat.referredBy && chat.referredBy.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Status filter
+    const matchesStatus = 
+      statusFilter === 'all' ||
+      (statusFilter === 'priority' && chat.status === 'priority') ||
+      (statusFilter === 'regular_waitlist' && (chat.status === 'regular' || chat.status === 'waitlisted')) ||
+      (statusFilter === 'waitlisted' && chat.status === 'waitlisted') ||
+      (statusFilter === 'regular' && chat.status === 'regular');
+    
+    return matchesSearch && matchesStatus;
+  });
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -42,20 +55,13 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCou
           <BiSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Search chats..."
+            placeholder="Search by name, phone, or referrer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
       
-      {/* <div className="filter-tabs">
-        <button className="filter-tab active">
-          <BiFilterAlt className="filter-icon" />
-          All Chats
-        </button>
-      </div> */}
-
       <div className="chats">
         {filteredChats.map((chat) => (
           <div
