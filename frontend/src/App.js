@@ -9,6 +9,7 @@ import ReferralTracking from './components/ReferralTracking';
 import { IoNotifications } from 'react-icons/io5';
 import config from './config';
 import notificationManager from './utils/notification';
+import { getISTTimestamp } from './utils/dateUtils';
 import './App.css';
 
 function App() {
@@ -461,7 +462,7 @@ function App() {
       tempId: tempId,
       message: message,  // Changed from 'text' to 'message' for consistency
       direction: 'outbound',
-      timestamp: new Date().toISOString(),
+      timestamp: getISTTimestamp(),  // Use IST timestamp
       status: 'pending',
       phone: phone,
       sentBy: user?.id,
@@ -515,7 +516,7 @@ function App() {
         setChats(prevChats => 
           prevChats.map(chat => 
             chat.phone === phone 
-              ? { ...chat, lastMessage: message, lastMessageTime: new Date().toISOString() }
+              ? { ...chat, lastMessage: message, lastMessageTime: getISTTimestamp() }
               : chat
           )
         );

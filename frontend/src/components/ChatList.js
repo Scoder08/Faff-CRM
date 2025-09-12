@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BiSearch, BiFilterAlt } from 'react-icons/bi';
+import { formatMessageTimeIST } from '../utils/dateUtils';
 
 const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCounts = {}, newMessageIndicators = {} }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,20 +34,6 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCou
     }
   };
 
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffMinutes = Math.ceil(diffTime / (1000 * 60));
-    
-    if (diffMinutes < 60) {
-      return `${diffMinutes}m ago`;
-    } else if (diffMinutes < 1440) {
-      return `${Math.floor(diffMinutes / 60)}h ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
 
   return (
     <div className="chat-list">
@@ -62,12 +49,12 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCou
         </div>
       </div>
       
-      <div className="filter-tabs">
+      {/* <div className="filter-tabs">
         <button className="filter-tab active">
           <BiFilterAlt className="filter-icon" />
           All Chats
         </button>
-      </div>
+      </div> */}
 
       <div className="chats">
         {filteredChats.map((chat) => (
@@ -88,7 +75,7 @@ const ChatList = ({ chats, selectedChat, onChatSelect, onStatusUpdate, unreadCou
                   )}
                 </div>
                 <div className="chat-time-wrapper">
-                  <div className="chat-time">{formatTime(chat.lastMessageTime)}</div>
+                  <div className="chat-time">{formatMessageTimeIST(chat.lastMessageTime)}</div>
                   {unreadCounts[chat.phone] > 0 && (
                     <span className="unread-count-badge">{unreadCounts[chat.phone]}</span>
                   )}
