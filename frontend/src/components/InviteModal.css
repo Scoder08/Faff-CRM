@@ -94,6 +94,18 @@
   color: #9ca3af;
 }
 
+.invite-modal-body input.error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 14px;
+  margin-top: 5px;
+  margin-bottom: 0;
+}
+
 .referrer-note {
   margin-top: 12px;
   padding: 10px 14px;
@@ -168,6 +180,114 @@
   }
   to {
     transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Loading state styles */
+.invite-loading-container {
+  padding: 60px 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.invite-loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.invite-loading-container h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.invite-loading-container p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Result container styles */
+.invite-result-container {
+  padding: 60px 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.invite-result-icon {
+  animation: scaleIn 0.4s ease;
+}
+
+.invite-result-container h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.invite-result-container.success h3 {
+  color: #10b981;
+}
+
+.invite-result-container.error h3 {
+  color: #ef4444;
+}
+
+.invite-result-container p {
+  margin: 0;
+  font-size: 15px;
+  color: #6b7280;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.invite-retry-btn {
+  margin-top: 10px;
+  padding: 10px 24px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.invite-retry-btn:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
     opacity: 1;
   }
 }

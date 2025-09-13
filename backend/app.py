@@ -20,6 +20,9 @@ import json
 import hashlib
 from functools import lru_cache
 from dotenv import load_dotenv
+import threading
+import time as time_module
+import requests
 
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -111,11 +114,67 @@ except Exception as e:
 cache = {
     'chats': None,
     'chats_timestamp': None,
-    'cache_duration': 30  # Cache for 30 seconds
+    'cache_duration': 30,  # Cache for 30 seconds
+    'customers': None,
+    'customers_timestamp': None,
+    'customers_cache_duration': 300  # Cache customers for 5 minutes
 }
 
 # WhatsApp webhook verify token
 VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'your_verify_token')
+
+def fetch_customers_from_api():
+    """Fetch customers from external API and cache them"""
+    try:
+        print("Fetching customers from external API...")
+        response = requests.get(
+            'https://faff-hermes-backend-251644788910.asia-south1.run.app/api/v1/customers/',
+            params={'skip': 0, 'limit': 1000},
+            headers={'accept': 'application/json'},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            customers = response.json()
+            # Cache the customers
+            cache['customers'] = customers
+            cache['customers_timestamp'] = time_module.time()
+            print(f"Successfully fetched {len(customers)} customers")
+            return customers
+        else:
+            print(f"Failed to fetch customers: {response.status_code}")
+            return cache.get('customers', [])
+    except Exception as e:
+        print(f"Error fetching customers: {e}")
+        return cache.get('customers', [])
+
+def get_cached_customers():
+    """Get customers from cache or fetch if expired"""
+    current_time = time_module.time()
+    
+    # Check if cache is valid
+    if cache['customers'] and cache['customers_timestamp']:
+        if current_time - cache['customers_timestamp'] < cache['customers_cache_duration']:
+            return cache['customers']
+    
+    # Cache expired or doesn't exist, fetch new data
+    return fetch_customers_from_api()
+
+def periodic_customer_update():
+    """Periodically update customer cache in background"""
+    while True:
+        time_module.sleep(300)  # Wait 5 minutes
+        try:
+            fetch_customers_from_api()
+        except Exception as e:
+            print(f"Error in periodic customer update: {e}")
+
+# Start background thread for periodic updates
+customer_update_thread = threading.Thread(target=periodic_customer_update, daemon=True)
+customer_update_thread.start()
+
+# Fetch customers on startup
+fetch_customers_from_api()
 
 @app.route('/api/health', methods=['GET'])
 def health():
@@ -682,6 +741,23 @@ def update_status():
     
     return jsonify({'success': True})
 
+@app.route('/api/customers', methods=['GET'])
+def get_customers():
+    """Get list of customers for referrer dropdown"""
+    customers = get_cached_customers()
+    
+    # Extract only necessary fields for dropdown
+    simplified_customers = []
+    for customer in customers:
+        simplified_customers.append({
+            'id': customer.get('id'),
+            'name': customer.get('name'),
+            'phone': customer.get('phone_number'),
+            'whatsapp_group_id': customer.get('whatsapp_group_id')
+        })
+    
+    return jsonify(simplified_customers)
+
 @app.route('/api/send-invite', methods=['POST'])
 def send_invite():
     """Send invite link to user via external WhatsApp API"""
@@ -693,9 +769,16 @@ def send_invite():
     phone = data.get('phone')
     name = data.get('name')
     referrer_name = data.get('referrerName', '')
+    referrer_id = data.get('referrerId', '')
     
     if not phone or not name:
         return jsonify({'error': 'Phone and name are required'}), 400
+    
+    # Check if group name already exists in customers list
+    customers = get_cached_customers()
+    existing_names = [c.get('name', '').lower() for c in customers]
+    if name.lower() in existing_names:
+        return jsonify({'error': f'Group name "{name}" already exists. Please choose a unique name.'}), 400
     
     # Prepare the payload for external API
     # Format: "OnboardingTest, {name}, {phone}, Ask"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ScheduleCallModal from './ScheduleCallModal';
 import UserNotesModal from './UserNotesModal';
 import './InviteModal.css';
+import Select from 'react-select';
 import { IoSend, IoAttach, IoEllipsisHorizontal, IoLinkOutline, IoCalendarOutline } from 'react-icons/io5';
 import { BiNote } from 'react-icons/bi';
 import { BsCheck, BsCheckAll } from 'react-icons/bs';
@@ -19,10 +20,58 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
   const [sendingInvite, setSendingInvite] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [groupName, setGroupName] = useState('');
+  const [selectedReferrer, setSelectedReferrer] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [groupNameError, setGroupNameError] = useState('');
+  const [inviteStatus, setInviteStatus] = useState(null); // 'sending', 'success', 'error'
+  const [inviteError, setInviteError] = useState('');
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const prevMessagesLength = useRef(0);
   const isInitialLoad = useRef(true);
+  
+  // Fetch customers when modal opens
+  useEffect(() => {
+    if (showInviteModal) {
+      fetchCustomers();
+    }
+  }, [showInviteModal]);
+  
+  const fetchCustomers = async () => {
+    setLoadingCustomers(true);
+    try {
+      const response = await fetch(`${config.API_URL}/api/customers`);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+  
+  const validateGroupName = (name) => {
+    if (!name.trim()) {
+      setGroupNameError('Group name is required');
+      return false;
+    }
+    
+    // Check if name already exists
+    const nameExists = customers.some(
+      customer => customer.name?.toLowerCase() === name.toLowerCase()
+    );
+    
+    if (nameExists) {
+      setGroupNameError(`Group name "${name}" already exists. Please choose a unique name.`);
+      return false;
+    }
+    
+    setGroupNameError('');
+    return true;
+  };
 
   const scrollToBottom = (instant = false) => {
     // Use requestAnimationFrame to ensure DOM has painted
@@ -86,13 +135,15 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
   };
   
   const handleSendInvite = async () => {
-    if (!groupName.trim()) {
-      alert('Please enter a group name');
+    if (!validateGroupName(groupName)) {
       return;
     }
     if (sendingInvite) return;
     
     setSendingInvite(true);
+    setInviteStatus('sending');
+    setInviteError('');
+    
     try {
       const response = await fetch(`${config.API_URL}/api/send-invite`, {
         method: 'POST',
@@ -102,26 +153,43 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
         body: JSON.stringify({
           phone: chat.phone,
           name: groupName.trim(),
-          referrerName: chat.referredBy || ''
+          referrerName: selectedReferrer?.label || '',
+          referrerId: selectedReferrer?.value || ''
         })
       });
       
       const data = await response.json();
       
       if (response.ok) {
-        // Show success message (you could add a toast notification here)
-        alert(`Invite sent successfully to ${chat.name}!`);
-        setShowInviteModal(false);
-        setGroupName('');
+        setInviteStatus('success');
+        // Auto close after 2 seconds on success
+        setTimeout(() => {
+          setShowInviteModal(false);
+          setGroupName('');
+          setSelectedReferrer(null);
+          setGroupNameError('');
+          setInviteStatus(null);
+        }, 2000);
       } else {
-        alert(`Failed to send invite: ${data.error || 'Unknown error'}`);
+        setInviteStatus('error');
+        setInviteError(data.error || 'Failed to send invite. Please try again.');
       }
     } catch (error) {
       console.error('Error sending invite:', error);
-      alert('Failed to send invite. Please try again.');
+      setInviteStatus('error');
+      setInviteError('Network error. Please check your connection and try again.');
     } finally {
       setSendingInvite(false);
     }
+  };
+  
+  const resetInviteModal = () => {
+    setShowInviteModal(false);
+    setGroupName('');
+    setSelectedReferrer(null);
+    setGroupNameError('');
+    setInviteStatus(null);
+    setInviteError('');
   };
 
 
@@ -312,38 +380,102 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
       
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="invite-modal-overlay" onClick={() => setShowInviteModal(false)}>
+        <div className="invite-modal-overlay" onClick={() => !sendingInvite && inviteStatus !== 'sending' && resetInviteModal()}>
           <div className="invite-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="invite-modal-header">
-              <h3>Send Invite Link</h3>
-              <button className="invite-close-btn" onClick={() => setShowInviteModal(false)}>×</button>
-            </div>
-            <div className="invite-modal-body">
+            {(inviteStatus === 'sending') ? (
+              <div className="invite-loading-container">
+                <div className="invite-loading-spinner"></div>
+                <h3>Sending Invite...</h3>
+                <p>Please wait while we send the invite link</p>
+              </div>
+            ) : inviteStatus === 'success' ? (
+              <div className="invite-result-container success">
+                <div className="invite-result-icon">
+                  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="#10b981" strokeWidth="2"/>
+                    <path d="M8 12L11 15L16 9" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <h3>Invite Sent Successfully!</h3>
+                <p>The invite link has been sent to {chat.name}</p>
+              </div>
+            ) : inviteStatus === 'error' ? (
+              <div className="invite-result-container error">
+                <div className="invite-result-icon">
+                  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="2"/>
+                    <path d="M15 9L9 15M9 9L15 15" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <h3>Failed to Send Invite</h3>
+                <p>{inviteError}</p>
+                <button className="invite-retry-btn" onClick={() => {
+                  setInviteStatus(null);
+                  setInviteError('');
+                }}>
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="invite-modal-header">
+                  <h3>Send Invite Link</h3>
+                  <button className="invite-close-btn" onClick={resetInviteModal}>×</button>
+                </div>
+                <div className="invite-modal-body">
               <label htmlFor="group-name">Enter Group Name:</label>
               <input
                 id="group-name"
                 type="text"
                 value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
+                onChange={(e) => {
+                  setGroupName(e.target.value);
+                  validateGroupName(e.target.value);
+                }}
                 placeholder="e.g., Marketing Team"
                 autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && groupName.trim()) {
-                    handleSendInvite();
-                  }
+                className={groupNameError ? 'error' : ''}
+              />
+              {groupNameError && (
+                <p className="error-message" style={{color: 'red', fontSize: '14px', marginTop: '5px'}}>
+                  {groupNameError}
+                </p>
+              )}
+              
+              <label htmlFor="referrer-select" style={{marginTop: '15px', display: 'block'}}>
+                Select Referrer:
+              </label>
+              <Select
+                id="referrer-select"
+                value={selectedReferrer}
+                onChange={setSelectedReferrer}
+                options={customers.map(c => ({
+                  value: c.id,
+                  label: c.name
+                }))}
+                isSearchable
+                isClearable
+                isLoading={loadingCustomers}
+                placeholder="Search and select referrer..."
+                noOptionsMessage={() => "No referrers found"}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    marginTop: '5px'
+                  })
                 }}
               />
-              {chat.referredBy && (
-                <p className="referrer-note">ℹ️ Referrer "{chat.referredBy}" will be included in the message</p>
+              {selectedReferrer && (
+                <p className="referrer-note" style={{marginTop: '10px'}}>
+                  ℹ️ Referrer "{selectedReferrer.label}" will be included in the message
+                </p>
               )}
             </div>
             <div className="invite-modal-footer">
               <button 
                 className="invite-cancel-btn" 
-                onClick={() => {
-                  setShowInviteModal(false);
-                  setGroupName('');
-                }}
+                onClick={resetInviteModal}
+                disabled={sendingInvite}
               >
                 Cancel
               </button>
@@ -352,9 +484,11 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
                 onClick={handleSendInvite}
                 disabled={sendingInvite || !groupName.trim()}
               >
-                {sendingInvite ? 'Sending...' : 'Send Invite'}
+                Send Invite
               </button>
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
