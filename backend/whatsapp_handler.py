@@ -204,7 +204,8 @@ def process_incoming_message(db, socketio, parsed_data):
         'timestamp': timestamp,
         'messageType': message_type,
         'isRead': False,
-        'status': 'received'  # For incoming messages
+        'status': 'received',  # For incoming messages
+        'buttonId': button_id  # Store button ID if present
     }
     db.messages.insert_one(message_doc)
     
@@ -283,7 +284,8 @@ def process_incoming_message(db, socketio, parsed_data):
             'messageType': 'interactive' if buttons else 'text',
             'isRead': True,
             'status': message_status,
-            'whatsappMessageId': whatsapp_message_id
+            'whatsappMessageId': whatsapp_message_id,
+            'buttons': buttons  # Store button data if present
         }
         db.messages.insert_one(reply_doc)
         
@@ -294,7 +296,8 @@ def process_incoming_message(db, socketio, parsed_data):
                 'phone': phone,
                 'message': reply_text,
                 'direction': 'outbound',
-                'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
+                'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')).isoformat(),
+                'buttons': buttons  # Include buttons in socket emission
             })
             print(f"Outbound new_message event emitted successfully")
     

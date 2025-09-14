@@ -24,6 +24,7 @@ function App() {
   const [socket, setSocket] = useState(null);
   const messagesCache = useRef({}); // Cache messages by phone number
   const cacheTimestamps = useRef({}); // Track when cache was last updated
+  const messagePagination = useRef({}); // Track pagination info
   const [unreadCounts, setUnreadCounts] = useState({}); // Track unread messages per chat
   const [newMessageIndicators, setNewMessageIndicators] = useState({}); // Track which chats have new messages
   const [statusFilter, setStatusFilter] = useState('all'); // Status filter state
@@ -478,40 +479,57 @@ function App() {
     }
   };
 
-  const fetchMessages = async (phone, forceRefresh = false) => {
+  const fetchMessages = async (phone, forceRefresh = false, page = 1) => {
     // Check if cache is stale (older than 30 seconds)
-    const cacheAge = cacheTimestamps.current[phone] 
-      ? Date.now() - cacheTimestamps.current[phone] 
+    const cacheAge = cacheTimestamps.current[phone]
+      ? Date.now() - cacheTimestamps.current[phone]
       : Infinity;
     const isStale = cacheAge > 30000; // 30 seconds
-    
-    // Check cache first unless force refresh or stale
-    if (!forceRefresh && !isStale && messagesCache.current[phone]) {
+
+    // Check cache first unless force refresh or stale or pagination
+    if (!forceRefresh && !isStale && page === 1 && messagesCache.current[phone]) {
       console.log('Using cached messages for:', phone);
       setMessages(messagesCache.current[phone]);
-      
+
       // Still fetch in background to ensure freshness
       fetchMessagesInBackground(phone);
       return;
     }
 
-    setMessagesLoading(true);
+    if (page === 1) {
+      setMessagesLoading(true);
+    }
     try {
-      const response = await fetch(`${config.API_URL}/api/messages/${phone}`);
+      const response = await fetch(`${config.API_URL}/api/messages/${phone}?page=${page}&limit=50`);
       const data = await response.json();
-      
+
       // Handle new paginated response format
-      const messages = data.messages || data;
-      
+      const newMessages = data.messages || data;
+      const pagination = data.pagination;
+
+      // Store pagination info
+      if (pagination) {
+        messagePagination.current[phone] = pagination;
+      }
+
+      let allMessages;
+      if (page > 1) {
+        // Prepend older messages to existing ones
+        const existingMessages = messagesCache.current[phone] || [];
+        allMessages = [...newMessages, ...existingMessages];
+      } else {
+        allMessages = newMessages;
+      }
+
       // Ensure messages are sorted by timestamp
-      const sortedMessages = messages.sort((a, b) => 
+      const sortedMessages = allMessages.sort((a, b) =>
         new Date(a.timestamp) - new Date(b.timestamp)
       );
-      
+
       // Cache the messages with timestamp
       messagesCache.current[phone] = sortedMessages;
       cacheTimestamps.current[phone] = Date.now();
-      
+
       // Clean up old cache entries if too many (keep last 10 chats)
       const cacheKeys = Object.keys(messagesCache.current);
       if (cacheKeys.length > 10) {
@@ -519,18 +537,21 @@ function App() {
         delete messagesCache.current[oldestKey];
         delete cacheTimestamps.current[oldestKey];
       }
-      
+
       setMessages(sortedMessages);
+      return pagination;
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
-      setMessagesLoading(false);
+      if (page === 1) {
+        setMessagesLoading(false);
+      }
     }
   };
 
   const fetchMessagesInBackground = async (phone) => {
     try {
-      const response = await fetch(`${config.API_URL}/api/messages/${phone}`);
+      const response = await fetch(`${config.API_URL}/api/messages/${phone}?page=1&limit=50`);
       const data = await response.json();
       
       // Handle new paginated response format
@@ -908,12 +929,20 @@ function App() {
       <div className="app-main">
         {selectedChat ? (
           <div style={{ position: 'relative', height: '100%' }}>
-            <ChatWindow 
+            <ChatWindow
               chat={selectedChat}
               messages={messages}
               onSendMessage={sendMessage}
               onStatusUpdate={updateStatus}
               onScheduleCall={scheduleCall}
+              onLoadMoreMessages={async () => {
+                const pagination = messagePagination.current[selectedChat.phone];
+                if (pagination && pagination.page < pagination.totalPages) {
+                  const newPagination = await fetchMessages(selectedChat.phone, false, pagination.page + 1);
+                  return newPagination;
+                }
+                return null;
+              }}
             />
             {messagesLoading && messages.length === 0 && (
               <div className="messages-loading-overlay">

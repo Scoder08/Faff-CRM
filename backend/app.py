@@ -27,6 +27,7 @@ import requests
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+
 from whatsapp_handler import (
     send_whatsapp_message,
     parse_message_data,
@@ -299,10 +300,12 @@ def get_messages(phone):
             'id': str(msg['_id']),
             'message': msg['message'],
             'direction': msg['direction'],
-            'timestamp': msg['timestamp'].astimezone(pytz.timezone('Asia/Kolkata')).isoformat(),
+            'timestamp': msg['timestamp'].astimezone(pytz.timezone(g.DEFAULT_TIMEZONE)).isoformat(),
             'messageType': msg.get('messageType', 'text'),
             'status': msg.get('status', 'sent'),  # Include message status
-            'whatsappMessageId': msg.get('whatsappMessageId')  # Include WhatsApp message ID for status tracking
+            'whatsappMessageId': msg.get('whatsappMessageId'),  # Include WhatsApp message ID for status tracking
+            'buttons': msg.get('buttons'),  # Include button data if present
+            'buttonId': msg.get('buttonId')  # Include button ID for button replies
         })
     
     return jsonify({

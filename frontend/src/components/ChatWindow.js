@@ -11,7 +11,7 @@ import { AiOutlineClockCircle } from 'react-icons/ai';
 import { formatMessageTimeIST } from '../utils/dateUtils';
 import config from '../config';
 
-const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleCall }) => {
+const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleCall, onLoadMoreMessages }) => {
   const [newMessage, setNewMessage] = useState('');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -30,6 +30,9 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
   const messagesContainerRef = useRef(null);
   const prevMessagesLength = useRef(0);
   const isInitialLoad = useRef(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const scrollPositionBeforeLoad = useRef(0);
   
   // Fetch customers when modal opens
   useEffect(() => {
@@ -37,6 +40,50 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
       fetchCustomers();
     }
   }, [showInviteModal]);
+
+  // Handle scroll for pagination
+  useEffect(() => {
+    const handleScroll = async () => {
+      const container = messagesContainerRef.current;
+      if (!container || isLoadingMore || !hasMoreMessages || !onLoadMoreMessages) return;
+
+      // Check if scrolled to top
+      if (container.scrollTop === 0) {
+        setIsLoadingMore(true);
+        scrollPositionBeforeLoad.current = container.scrollHeight;
+
+        try {
+          const pagination = await onLoadMoreMessages();
+          if (!pagination || pagination.page >= pagination.totalPages) {
+            setHasMoreMessages(false);
+          }
+        } catch (error) {
+          console.error('Error loading more messages:', error);
+        } finally {
+          setIsLoadingMore(false);
+        }
+      }
+    };
+
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [isLoadingMore, hasMoreMessages, onLoadMoreMessages]);
+
+  // Maintain scroll position after loading more messages
+  useEffect(() => {
+    if (scrollPositionBeforeLoad.current > 0 && !isLoadingMore) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        const newScrollHeight = container.scrollHeight;
+        const scrollDiff = newScrollHeight - scrollPositionBeforeLoad.current;
+        container.scrollTop = scrollDiff;
+        scrollPositionBeforeLoad.current = 0;
+      }
+    }
+  }, [messages, isLoadingMore]);
   
   const fetchCustomers = async () => {
     setLoadingCustomers(true);
@@ -111,6 +158,9 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
   useEffect(() => {
     isInitialLoad.current = true;
     prevMessagesLength.current = 0;
+    setHasMoreMessages(true);
+    setIsLoadingMore(false);
+    scrollPositionBeforeLoad.current = 0;
     // Immediate scroll
     scrollToBottom(true);
     // Multiple attempts to ensure it works
@@ -314,6 +364,15 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
 
       <div className="messages-container">
         <div className="messages" ref={messagesContainerRef}>
+          {isLoadingMore && (
+            <div className="loading-more" style={{
+              textAlign: 'center',
+              padding: '10px',
+              color: '#666'
+            }}>
+              Loading more messages...
+            </div>
+          )}
           {messages.map((message) => (
             <div
               key={message.id}
@@ -322,6 +381,43 @@ const ChatWindow = ({ chat, messages, onSendMessage, onStatusUpdate, onScheduleC
             >
               <div className="message-content">
                 {message.text || message.message}
+                {message.buttons && message.buttons.length > 0 && (
+                  <div className="message-buttons" style={{
+                    marginTop: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    {message.buttons.map((button, index) => (
+                      <button
+                        key={index}
+                        className="whatsapp-button"
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#25D366',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                        disabled
+                      >
+                        {button.type === 'reply' ? button.reply.title : button.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {message.buttonId && (
+                  <div className="button-reply" style={{
+                    marginTop: '4px',
+                    fontSize: '12px',
+                    color: '#666',
+                    fontStyle: 'italic'
+                  }}>
+                    Button clicked: {message.buttonId}
+                  </div>
+                )}
                 {message.status === 'failed' && (
                   <button 
                     className="retry-btn"
