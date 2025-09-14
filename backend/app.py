@@ -300,7 +300,7 @@ def get_messages(phone):
             'id': str(msg['_id']),
             'message': msg['message'],
             'direction': msg['direction'],
-            'timestamp': msg['timestamp'].astimezone(pytz.timezone(g.DEFAULT_TIMEZONE)).isoformat(),
+            'timestamp': msg['timestamp'].astimezone(pytz.timezone('Asia/Kolkata')).isoformat(),
             'messageType': msg.get('messageType', 'text'),
             'status': msg.get('status', 'sent'),  # Include message status
             'whatsappMessageId': msg.get('whatsappMessageId'),  # Include WhatsApp message ID for status tracking
